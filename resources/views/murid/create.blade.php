@@ -1,0 +1,170 @@
+<x-app-layout>
+    <x-slot name="header">
+        <!-- Mobile View - Left Aligned and Uppercase -->
+        <div class="md:hidden">
+            <div class="flex items-center">
+                <div class="bg-white/25 backdrop-blur-md rounded-xl p-2.5 sm:p-3 mr-3 sm:mr-4 shrink-0 shadow-lg ring-2 ring-white/20">
+                    <svg class="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                </div>
+                <h2 class="text-xl sm:text-2xl font-black text-white drop-shadow-2xl uppercase tracking-wide">
+                    Tambah Siswa
+                </h2>
+            </div>
+        </div>
+
+        <!-- Desktop View - Original Layout -->
+        <div class="hidden md:flex md:items-center">
+            <a href="{{ route('murid.index') }}" class="mr-4 text-gray-600 hover:text-gray-800">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+            </a>
+            <div>
+                <h2 class="font-bold text-2xl text-gray-800 leading-tight">Tambah Siswa</h2>
+                <p class="text-sm text-gray-600 mt-1">Tambahkan siswa baru ke sistem</p>
+            </div>
+        </div>
+    </x-slot>
+
+    <div class="py-8">
+        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+            <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+                <div class="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4">
+                    <h3 class="text-lg font-semibold text-white">Form Tambah Siswa</h3>
+                </div>
+                <div class="p-8">
+                    <form method="POST" action="{{ route('murid.store') }}" class="space-y-6">
+                        @csrf
+
+                        <!-- NIS -->
+                        <div>
+                            <label for="NIS" class="block text-sm font-semibold text-gray-700 mb-2">NIS</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
+                                    </svg>
+                                </div>
+                                <input id="NIS" type="text" name="NIS" value="{{ old('NIS') }}" required autofocus
+                                    class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200"
+                                    placeholder="Masukkan NIS">
+                            </div>
+                            <x-input-error :messages="$errors->get('NIS')" class="mt-2" />
+                        </div>
+
+                        <!-- Nama Lengkap -->
+                        <div>
+                            <label for="nama_lengkap" class="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                    </svg>
+                                </div>
+                                <input id="nama_lengkap" type="text" name="nama_lengkap" value="{{ old('nama_lengkap') }}" required
+                                    class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200"
+                                    placeholder="Masukkan Nama Lengkap Siswa">
+                            </div>
+                            <x-input-error :messages="$errors->get('nama_lengkap')" class="mt-2" />
+                        </div>
+
+                        <!-- Gender -->
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Jenis Kelamin</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <label id="label-laki" class="relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 {{ old('gender') == 'Laki-laki' ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-indigo-400' }}">
+                                    <input type="radio" name="gender" value="Laki-laki" id="gender-laki" {{ old('gender') == 'Laki-laki' ? 'checked' : '' }} required class="sr-only">
+                                    <div class="flex items-center">
+                                        <div class="bg-blue-100 rounded-full p-2 mr-3">
+                                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                            </svg>
+                                        </div>
+                                        <span class="font-medium text-gray-700">Laki-laki</span>
+                                    </div>
+                                </label>
+                                <label id="label-perempuan" class="relative flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 {{ old('gender') == 'Perempuan' ? 'border-pink-500 bg-pink-50' : 'border-gray-300 hover:border-indigo-400' }}">
+                                    <input type="radio" name="gender" value="Perempuan" id="gender-perempuan" {{ old('gender') == 'Perempuan' ? 'checked' : '' }} required class="sr-only">
+                                    <div class="flex items-center">
+                                        <div class="bg-pink-100 rounded-full p-2 mr-3">
+                                            <svg class="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                            </svg>
+                                        </div>
+                                        <span class="font-medium text-gray-700">Perempuan</span>
+                                    </div>
+                                </label>
+                            </div>
+                            <x-input-error :messages="$errors->get('gender')" class="mt-2" />
+                        </div>
+
+                        <!-- Kelas -->
+                        <div>
+                            <label for="kelas" class="block text-sm font-semibold text-gray-700 mb-2">Kelas</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                    </svg>
+                                </div>
+                                <select id="kelas" name="kelas" required
+                                    class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200">
+                                    <option value="">Pilih Kelas</option>
+                                    @foreach ($kelas as $kls)
+                                        <option value="{{ $kls->kelas }}" {{ old('kelas') == $kls->kelas ? 'selected' : '' }}>
+                                            {{ $kls->kelas }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <x-input-error :messages="$errors->get('kelas')" class="mt-2" />
+                        </div>
+
+                        <div class="flex items-center justify-end gap-3 pt-4 border-t">
+                            <a href="{{ route('murid.index') }}" class="inline-flex items-center px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors duration-200">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                                Batal
+                            </a>
+                            <button type="submit" class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                Simpan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const labelLaki      = document.getElementById('label-laki');
+        const labelPerempuan = document.getElementById('label-perempuan');
+        const radioLaki      = document.getElementById('gender-laki');
+        const radioPerempuan = document.getElementById('gender-perempuan');
+
+        function updateGenderBorder() {
+            if (radioLaki.checked) {
+                labelLaki.classList.remove('border-gray-300', 'hover:border-indigo-400');
+                labelLaki.classList.add('border-blue-500', 'bg-blue-50');
+                labelPerempuan.classList.remove('border-pink-500', 'bg-pink-50');
+                labelPerempuan.classList.add('border-gray-300', 'hover:border-indigo-400');
+            } else if (radioPerempuan.checked) {
+                labelPerempuan.classList.remove('border-gray-300', 'hover:border-indigo-400');
+                labelPerempuan.classList.add('border-pink-500', 'bg-pink-50');
+                labelLaki.classList.remove('border-blue-500', 'bg-blue-50');
+                labelLaki.classList.add('border-gray-300', 'hover:border-indigo-400');
+            }
+        }
+
+        radioLaki.addEventListener('change', updateGenderBorder);
+        radioPerempuan.addEventListener('change', updateGenderBorder);
+
+        // Jalankan saat load jika ada old value (setelah validation error)
+        updateGenderBorder();
+    </script>
+</x-app-layout>
