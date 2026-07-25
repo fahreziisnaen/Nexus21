@@ -7,7 +7,7 @@
 
 Aplikasi sudah punya fitur "Naik Kelas" (`NaikKelasController`, halaman `/naik-kelas`, Admin only) yang secara otomatis menaikkan SEMUA murid aktif di SEMUA kelas sekaligus dengan pola tetap: `X-N → XI-N`, `XI-N → XII-N`, `XII-N → Lulus`. Nomor section (N) selalu tetap sama — tidak ada mekanisme untuk memindahkan murid ke section paralel yang berbeda (mis. sebagian murid X-1 pindah ke XI-2, bukan XI-1).
 
-Fitur ini menambahkan cara **manual** untuk mengoreksi/reshuffle kelas banyak murid sekaligus, dipakai sebagai **langkah lanjutan setelah** proses Naik Kelas otomatis dijalankan (bukan pengganti, bukan berdiri sendiri).
+Fitur ini menambahkan cara **manual** untuk mengoreksi/reshuffle kelas banyak murid sekaligus. Fitur ini **berdiri sendiri (independen)** — bisa dipakai kapan saja terhadap murid aktif mana pun, **tidak mensyaratkan** proses Naik Kelas otomatis sudah/belum dijalankan. Ini sengaja dibuat independen supaya tidak ada risiko admin menjalankan Naik Kelas lalu lupa melakukan reshuffle susulan karena harus balik lagi ke urutan tertentu — kedua form ini dua aksi terpisah yang kebetulan berbagi satu halaman.
 
 ## Goal
 
@@ -25,10 +25,11 @@ Admin bisa:
 - Tidak menangani kelulusan (`status = Lulus`) — itu tetap domain fitur Naik Kelas.
 - Tidak membuat kelas baru otomatis — `Kelas Baru` di file harus kelas yang sudah terdaftar.
 - Tidak mengubah data selain field `kelas` pada tabel `murid`.
+- Tidak ada gating/pengecekan apakah Naik Kelas sudah pernah dijalankan — form ini selalu aktif dan bisa dipakai berulang kali kapan saja.
 
 ## Placement
 
-Section baru **"Form Perubahan Kelas"** di halaman `/naik-kelas` (`resources/views/naik-kelas/index.blade.php`), ditempatkan di bawah form Naik Kelas otomatis yang sudah ada. Akses tetap dibatasi Admin via `checkAdminAccess()` yang sudah ada di `NaikKelasController`.
+Section baru **"Form Perubahan Kelas"** di halaman `/naik-kelas` (`resources/views/naik-kelas/index.blade.php`), ditempatkan di bawah form Naik Kelas otomatis yang sudah ada — tapi sebagai section yang **independen secara fungsional**: tidak ada state, validasi, atau alur yang mengharuskan form Naik Kelas di atasnya sudah pernah disubmit. Admin bisa langsung scroll ke section ini dan pakai tanpa menyentuh form Naik Kelas sama sekali. Akses tetap dibatasi Admin via `checkAdminAccess()` yang sudah ada di `NaikKelasController`.
 
 ## Routes
 
