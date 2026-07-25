@@ -6,6 +6,10 @@ use App\Models\Kelas;
 use App\Models\Murid;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Common\Entity\Style\Style;
+use OpenSpout\Writer\XLSX\Options;
+use OpenSpout\Writer\XLSX\Writer;
 
 class NaikKelasController extends Controller
 {
@@ -199,5 +203,49 @@ class NaikKelasController extends Controller
 
         // Jika format tidak sesuai, return null
         return null;
+    }
+
+    /**
+     * Download template Excel untuk perubahan kelas (NIS + Kelas Baru).
+     */
+    public function downloadTemplatePerubahanKelas()
+    {
+        $redirect = $this->checkAdminAccess();
+        if ($redirect) {
+            return $redirect;
+        }
+
+        $filename = 'template_perubahan_kelas.xlsx';
+        $tempPath = storage_path('app/temp/'.$filename);
+
+        if (! is_dir(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        try {
+            $options = new Options;
+            $options->setTempFolder(storage_path('app/temp'));
+            $writer = new Writer($options);
+            $writer->openToFile($tempPath);
+
+            $headerStyle = (new Style)
+                ->setFontBold()
+                ->setFontSize(11);
+
+            $writer->addRow(Row::fromValues(['NIS', 'Kelas Baru'], $headerStyle));
+            $writer->addRow(Row::fromValues(['1234567890', 'XI-2']));
+            $writer->addRow(Row::fromValues(['1234567891', 'XI-3']));
+
+            $writer->close();
+
+            return response()->download($tempPath, $filename)->deleteFileAfterSend(true);
+        } catch (\Exception $e) {
+            if (file_exists($tempPath)) {
+                unlink($tempPath);
+            }
+
+            return redirect()->route('naik-kelas.index')
+                ->with('error', 'Gagal download template: '.$e->getMessage());
+        }
     }
 }

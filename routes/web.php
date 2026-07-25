@@ -196,6 +196,9 @@ Route::middleware("auth")->group(function () {
     Route::get('/naik-kelas', [NaikKelasController::class, 'index'])->name('naik-kelas.index');
     Route::post('/naik-kelas/process', [NaikKelasController::class, 'processNaikKelas'])->name('naik-kelas.process');
 
+    // Perubahan Kelas (upload massal, independen dari Naik Kelas)
+    Route::get('/naik-kelas/perubahan-kelas/template', [NaikKelasController::class, 'downloadTemplatePerubahanKelas'])->name('naik-kelas.perubahan-kelas.template');
+
 });
 
 require __DIR__ . "/auth.php";
