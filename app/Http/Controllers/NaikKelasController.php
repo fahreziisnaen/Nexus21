@@ -443,4 +443,60 @@ class NaikKelasController extends Controller
             ->with('perubahan_kelas_preview_ready', true)
             ->with('perubahan_kelas_skipped_noop', $result['skipped_noop']);
     }
+
+    /**
+     * Konfirmasi & simpan perubahan kelas yang tersimpan di session (dari previewPerubahanKelas).
+     * Re-validasi singkat sebelum commit karena kondisi bisa berubah sejak preview dibuat.
+     */
+    public function prosesPerubahanKelas(Request $request)
+    {
+        $redirect = $this->checkAdminAccess();
+        if ($redirect) {
+            return $redirect;
+        }
+
+        $previewChanges = session('perubahan_kelas_preview');
+
+        if (empty($previewChanges)) {
+            return redirect()->route('naik-kelas.index')
+                ->with('error_perubahan_kelas', 'Tidak ada data preview. Silakan upload ulang file perubahan kelas.');
+        }
+
+        $rows = [];
+        foreach ($previewChanges as $index => $change) {
+            $rows[] = [
+                'row_number' => $index + 1,
+                'nis' => $change['NIS'],
+                'kelas_baru' => $change['kelas_baru'],
+            ];
+        }
+
+        $result = $this->validatePerubahanKelasRows($rows);
+
+        if (! empty($result['errors'])) {
+            session()->forget('perubahan_kelas_preview');
+
+            return redirect()->route('naik-kelas.index')
+                ->with('perubahan_kelas_errors', array_slice($result['errors'], 0, 10))
+                ->with('error_perubahan_kelas', 'Data sudah berubah sejak preview dibuat. Silakan upload ulang file perubahan kelas.');
+        }
+
+        DB::beginTransaction();
+        try {
+            foreach ($result['changes'] as $change) {
+                Murid::where('NIS', $change['NIS'])->update(['kelas' => $change['kelas_baru']]);
+            }
+
+            DB::commit();
+            session()->forget('perubahan_kelas_preview');
+
+            return redirect()->route('naik-kelas.index')
+                ->with('success', count($result['changes']).' murid berhasil dipindahkan kelasnya.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return redirect()->route('naik-kelas.index')
+                ->with('error_perubahan_kelas', 'Terjadi kesalahan saat memproses perubahan kelas: '.$e->getMessage());
+        }
+    }
 }

@@ -266,3 +266,57 @@ test('preview combines multiple rows moving into the same class for capacity che
     expect(session('perubahan_kelas_errors'))
         ->toContain("Kelas 'XI-2' akan melebihi kapasitas 40 murid (saat ini 39, akan menjadi 41)");
 });
+
+test('proses commits changes from session and clears it', function () {
+    $admin = makeAdmin();
+    makeKelas('XI-1');
+    makeKelas('XI-2');
+    makeMurid('1111111111', 'XI-1', 'Aktif', 'Budi');
+
+    session(['perubahan_kelas_preview' => [
+        ['NIS' => '1111111111', 'nama_lengkap' => 'Budi', 'kelas_lama' => 'XI-1', 'kelas_baru' => 'XI-2'],
+    ]]);
+
+    $response = $this->actingAs($admin)->post(route('naik-kelas.perubahan-kelas.proses'));
+
+    $response->assertRedirect(route('naik-kelas.index'));
+    $response->assertSessionHas('success');
+    $this->assertNull(session('perubahan_kelas_preview'));
+    expect(\App\Models\Murid::find('1111111111')->kelas)->toBe('XI-2');
+});
+
+test('proses redirects with error when there is no preview session data', function () {
+    $admin = makeAdmin();
+
+    $response = $this->actingAs($admin)->post(route('naik-kelas.perubahan-kelas.proses'));
+
+    $response->assertSessionHas('error_perubahan_kelas');
+});
+
+test('proses rejects and clears session when data became stale since preview', function () {
+    $admin = makeAdmin();
+    makeKelas('XI-1');
+    makeKelas('XI-2');
+    $murid = makeMurid('1111111111', 'XI-1', 'Aktif', 'Budi');
+
+    session(['perubahan_kelas_preview' => [
+        ['NIS' => '1111111111', 'nama_lengkap' => 'Budi', 'kelas_lama' => 'XI-1', 'kelas_baru' => 'XI-2'],
+    ]]);
+
+    // Kondisi berubah: murid sudah lulus sebelum konfirmasi diproses
+    $murid->update(['status' => 'Lulus', 'kelas' => null]);
+
+    $response = $this->actingAs($admin)->post(route('naik-kelas.perubahan-kelas.proses'));
+
+    $response->assertSessionHas('error_perubahan_kelas');
+    $this->assertNull(session('perubahan_kelas_preview'));
+    expect($murid->fresh()->kelas)->toBeNull();
+});
+
+test('non-admin cannot proses perubahan kelas', function () {
+    $walikelas = User::factory()->create(['role' => 'Walikelas']);
+
+    $response = $this->actingAs($walikelas)->post(route('naik-kelas.perubahan-kelas.proses'));
+
+    $response->assertRedirect(route('dashboard'));
+});
