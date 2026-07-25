@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Common\Entity\Style\Style;
+use OpenSpout\Reader\XLSX\Reader;
 use OpenSpout\Writer\XLSX\Options;
 use OpenSpout\Writer\XLSX\Writer;
 
@@ -247,5 +248,171 @@ class NaikKelasController extends Controller
             return redirect()->route('naik-kelas.index')
                 ->with('error', 'Gagal download template: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Parse file Excel perubahan kelas menjadi baris [row_number, nis, kelas_baru].
+     * Baris header (baris pertama) dan baris yang sepenuhnya kosong dilewati.
+     */
+    private function parsePerubahanKelasFile(string $path): array
+    {
+        $rows = [];
+        $reader = new Reader;
+        $reader->open($path);
+
+        $rowIndex = 0;
+        foreach ($reader->getSheetIterator() as $sheet) {
+            foreach ($sheet->getRowIterator() as $row) {
+                $rowIndex++;
+                if ($rowIndex === 1) {
+                    continue;
+                }
+
+                $cells = $row->getCells();
+                $nis = trim((string) ($cells[0]->getValue() ?? ''));
+                $kelasBaru = trim((string) ($cells[1]->getValue() ?? ''));
+
+                if ($nis === '' && $kelasBaru === '') {
+                    continue;
+                }
+
+                $rows[] = [
+                    'row_number' => $rowIndex,
+                    'nis' => $nis,
+                    'kelas_baru' => $kelasBaru,
+                ];
+            }
+            break;
+        }
+
+        $reader->close();
+
+        return $rows;
+    }
+
+    /**
+     * Validasi semua baris perubahan kelas. Tidak ada perubahan yang dianggap
+     * "siap disimpan" kalau ada satu saja baris error (all-or-nothing di level caller).
+     */
+    private function validatePerubahanKelasRows(array $rows): array
+    {
+        $errors = [];
+        $changes = [];
+        $skippedNoop = 0;
+
+        $nisCounts = [];
+        foreach ($rows as $row) {
+            $nisCounts[$row['nis']] = ($nisCounts[$row['nis']] ?? 0) + 1;
+        }
+
+        $activeMurids = Murid::where('status', 'Aktif')->get()->keyBy('NIS');
+        $validKelas = Kelas::pluck('kelas')->flip();
+
+        $netChange = [];
+
+        foreach ($rows as $row) {
+            $rowNumber = $row['row_number'];
+            $nis = $row['nis'];
+            $kelasBaru = $row['kelas_baru'];
+
+            if ($nis === '' || $kelasBaru === '') {
+                $errors[] = "Baris {$rowNumber}: NIS dan Kelas Baru wajib diisi";
+
+                continue;
+            }
+
+            if ($nisCounts[$nis] > 1) {
+                $errors[] = "Baris {$rowNumber}: NIS {$nis} muncul lebih dari sekali dalam file";
+
+                continue;
+            }
+
+            $murid = $activeMurids->get($nis);
+            if (! $murid) {
+                $errors[] = "Baris {$rowNumber}: NIS {$nis} tidak ditemukan atau bukan murid aktif";
+
+                continue;
+            }
+
+            if (! $validKelas->has($kelasBaru)) {
+                $errors[] = "Baris {$rowNumber}: Kelas '{$kelasBaru}' tidak ditemukan";
+
+                continue;
+            }
+
+            $kelasLama = $murid->kelas;
+            if ($kelasLama === $kelasBaru) {
+                $skippedNoop++;
+
+                continue;
+            }
+
+            $netChange[$kelasLama] = ($netChange[$kelasLama] ?? 0) - 1;
+            $netChange[$kelasBaru] = ($netChange[$kelasBaru] ?? 0) + 1;
+
+            $changes[] = [
+                'NIS' => $nis,
+                'nama_lengkap' => $murid->nama_lengkap,
+                'kelas_lama' => $kelasLama,
+                'kelas_baru' => $kelasBaru,
+            ];
+        }
+
+        return [
+            'errors' => $errors,
+            'changes' => $changes,
+            'skipped_noop' => $skippedNoop,
+        ];
+    }
+
+    /**
+     * Preview perubahan kelas dari file yang diupload. Kalau semua baris valid,
+     * simpan hasilnya ke session untuk tahap konfirmasi (prosesPerubahanKelas).
+     */
+    public function previewPerubahanKelas(Request $request)
+    {
+        $redirect = $this->checkAdminAccess();
+        if ($redirect) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx', 'max:10240'],
+        ], [
+            'file.required' => 'File harus diupload.',
+            'file.file' => 'File tidak valid.',
+            'file.mimes' => 'File harus berformat Excel (.xlsx).',
+            'file.max' => 'Ukuran file maksimal 10MB.',
+        ]);
+
+        session()->forget('perubahan_kelas_preview');
+
+        $rows = $this->parsePerubahanKelasFile($request->file('file')->getRealPath());
+
+        if (empty($rows)) {
+            return redirect()->route('naik-kelas.index')
+                ->with('error_perubahan_kelas', 'File tidak berisi data. Pastikan file memiliki baris data selain header.');
+        }
+
+        $result = $this->validatePerubahanKelasRows($rows);
+
+        if (! empty($result['errors'])) {
+            $displayedErrors = array_slice($result['errors'], 0, 10);
+
+            return redirect()->route('naik-kelas.index')
+                ->with('perubahan_kelas_errors', $displayedErrors)
+                ->with('perubahan_kelas_errors_remaining', count($result['errors']) - count($displayedErrors));
+        }
+
+        if (empty($result['changes'])) {
+            return redirect()->route('naik-kelas.index')
+                ->with('error_perubahan_kelas', 'Tidak ada perubahan kelas yang perlu diproses (semua baris kelas barunya sama dengan kelas saat ini).');
+        }
+
+        session(['perubahan_kelas_preview' => $result['changes']]);
+
+        return redirect()->route('naik-kelas.index')
+            ->with('perubahan_kelas_preview_ready', true)
+            ->with('perubahan_kelas_skipped_noop', $result['skipped_noop']);
     }
 }

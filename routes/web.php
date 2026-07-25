@@ -198,6 +198,7 @@ Route::middleware("auth")->group(function () {
 
     // Perubahan Kelas (upload massal, independen dari Naik Kelas)
     Route::get('/naik-kelas/perubahan-kelas/template', [NaikKelasController::class, 'downloadTemplatePerubahanKelas'])->name('naik-kelas.perubahan-kelas.template');
+    Route::post('/naik-kelas/perubahan-kelas/preview', [NaikKelasController::class, 'previewPerubahanKelas'])->name('naik-kelas.perubahan-kelas.preview');
 
 });
 
