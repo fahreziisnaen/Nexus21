@@ -199,3 +199,70 @@ test('non-admin cannot preview perubahan kelas', function () {
 
     $response->assertRedirect(route('dashboard'));
 });
+
+test('preview rejects when destination kelas would exceed 40 active students', function () {
+    $admin = makeAdmin();
+    makeKelas('XI-1');
+    makeKelas('XI-2');
+
+    for ($i = 1; $i <= 40; $i++) {
+        makeMurid(str_pad((string) $i, 10, '0', STR_PAD_LEFT), 'XI-2');
+    }
+    makeMurid('9999999998', 'XI-1', 'Aktif', 'Calon Pindah');
+
+    $file = makeXlsxUploadFile([['9999999998', 'XI-2']]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('naik-kelas.perubahan-kelas.preview'), ['file' => $file]);
+
+    expect(session('perubahan_kelas_errors'))
+        ->toContain("Kelas 'XI-2' akan melebihi kapasitas 40 murid (saat ini 40, akan menjadi 41)");
+    $this->assertNull(session('perubahan_kelas_preview'));
+});
+
+test('preview allows a same-size swap between two classes without false capacity rejection', function () {
+    $admin = makeAdmin();
+    makeKelas('XI-1');
+    makeKelas('XI-2');
+
+    for ($i = 1; $i <= 40; $i++) {
+        makeMurid('a'.str_pad((string) $i, 9, '0', STR_PAD_LEFT), 'XI-1');
+    }
+    for ($i = 1; $i <= 40; $i++) {
+        makeMurid('b'.str_pad((string) $i, 9, '0', STR_PAD_LEFT), 'XI-2');
+    }
+
+    $file = makeXlsxUploadFile([
+        ['a000000001', 'XI-2'],
+        ['b000000001', 'XI-1'],
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('naik-kelas.perubahan-kelas.preview'), ['file' => $file]);
+
+    $response->assertSessionHas('perubahan_kelas_preview_ready', true);
+    expect(session('perubahan_kelas_preview'))->toHaveCount(2);
+});
+
+test('preview combines multiple rows moving into the same class for capacity check', function () {
+    $admin = makeAdmin();
+    makeKelas('XI-1');
+    makeKelas('XI-2');
+
+    for ($i = 1; $i <= 39; $i++) {
+        makeMurid('c'.str_pad((string) $i, 9, '0', STR_PAD_LEFT), 'XI-2');
+    }
+    makeMurid('d000000001', 'XI-1');
+    makeMurid('d000000002', 'XI-1');
+
+    $file = makeXlsxUploadFile([
+        ['d000000001', 'XI-2'],
+        ['d000000002', 'XI-2'],
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('naik-kelas.perubahan-kelas.preview'), ['file' => $file]);
+
+    expect(session('perubahan_kelas_errors'))
+        ->toContain("Kelas 'XI-2' akan melebihi kapasitas 40 murid (saat ini 39, akan menjadi 41)");
+});

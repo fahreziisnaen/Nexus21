@@ -361,6 +361,23 @@ class NaikKelasController extends Controller
             ];
         }
 
+        if (! empty($netChange)) {
+            $currentCounts = Murid::where('status', 'Aktif')
+                ->whereIn('kelas', array_keys($netChange))
+                ->selectRaw('kelas, count(*) as total')
+                ->groupBy('kelas')
+                ->pluck('total', 'kelas');
+
+            foreach ($netChange as $kelas => $delta) {
+                $current = (int) ($currentCounts[$kelas] ?? 0);
+                $projected = $current + $delta;
+
+                if ($projected > 40) {
+                    $errors[] = "Kelas '{$kelas}' akan melebihi kapasitas 40 murid (saat ini {$current}, akan menjadi {$projected})";
+                }
+            }
+        }
+
         return [
             'errors' => $errors,
             'changes' => $changes,
