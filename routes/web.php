@@ -200,6 +200,7 @@ Route::middleware("auth")->group(function () {
     Route::get('/naik-kelas/perubahan-kelas/template', [NaikKelasController::class, 'downloadTemplatePerubahanKelas'])->name('naik-kelas.perubahan-kelas.template');
     Route::post('/naik-kelas/perubahan-kelas/preview', [NaikKelasController::class, 'previewPerubahanKelas'])->name('naik-kelas.perubahan-kelas.preview');
     Route::post('/naik-kelas/perubahan-kelas/proses', [NaikKelasController::class, 'prosesPerubahanKelas'])->name('naik-kelas.perubahan-kelas.proses');
+    Route::post('/naik-kelas/perubahan-kelas/batal', [NaikKelasController::class, 'batalPerubahanKelas'])->name('naik-kelas.perubahan-kelas.batal');
 
 });
 

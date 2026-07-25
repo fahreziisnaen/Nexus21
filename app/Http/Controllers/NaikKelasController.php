@@ -499,4 +499,19 @@ class NaikKelasController extends Controller
                 ->with('error_perubahan_kelas', 'Terjadi kesalahan saat memproses perubahan kelas: '.$e->getMessage());
         }
     }
+
+    /**
+     * Batalkan preview perubahan kelas yang tersimpan di session.
+     */
+    public function batalPerubahanKelas()
+    {
+        $redirect = $this->checkAdminAccess();
+        if ($redirect) {
+            return $redirect;
+        }
+
+        session()->forget('perubahan_kelas_preview');
+
+        return redirect()->route('naik-kelas.index')->with('success', 'Preview perubahan kelas dibatalkan.');
+    }
 }

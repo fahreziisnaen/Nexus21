@@ -320,3 +320,24 @@ test('non-admin cannot proses perubahan kelas', function () {
 
     $response->assertRedirect(route('dashboard'));
 });
+
+test('batal clears preview session data', function () {
+    $admin = makeAdmin();
+
+    session(['perubahan_kelas_preview' => [
+        ['NIS' => '1111111111', 'nama_lengkap' => 'Budi', 'kelas_lama' => 'XI-1', 'kelas_baru' => 'XI-2'],
+    ]]);
+
+    $response = $this->actingAs($admin)->post(route('naik-kelas.perubahan-kelas.batal'));
+
+    $response->assertRedirect(route('naik-kelas.index'));
+    $this->assertNull(session('perubahan_kelas_preview'));
+});
+
+test('non-admin cannot batal perubahan kelas', function () {
+    $walikelas = User::factory()->create(['role' => 'Walikelas']);
+
+    $response = $this->actingAs($walikelas)->post(route('naik-kelas.perubahan-kelas.batal'));
+
+    $response->assertRedirect(route('dashboard'));
+});
