@@ -212,6 +212,138 @@
                     </x-modal>
                 </div>
             </div>
+
+            <div class="bg-white rounded-2xl shadow-xl overflow-hidden mt-8" x-data="{}">
+                <div class="bg-gradient-to-r from-teal-500 to-cyan-600 px-6 py-4">
+                    <h3 class="text-lg font-semibold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        Form Perubahan Kelas
+                    </h3>
+                </div>
+                <div class="p-6 text-gray-900">
+                    <p class="text-sm text-gray-600 mb-6">
+                        Ubah kelas beberapa murid aktif sekaligus dengan upload file. Fitur ini berdiri sendiri, bisa dipakai kapan saja tanpa perlu menjalankan proses Naik Kelas terlebih dahulu.
+                    </p>
+
+                    @if (session('error_perubahan_kelas'))
+                        <div class="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 px-6 py-4 rounded-lg shadow-md" role="alert">
+                            <p class="font-medium">{{ session('error_perubahan_kelas') }}</p>
+                        </div>
+                    @endif
+
+                    @if (session('perubahan_kelas_errors'))
+                        <div class="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 px-6 py-4 rounded-lg shadow-md" role="alert">
+                            <p class="font-semibold mb-2">File berisi data yang tidak valid. Tidak ada perubahan yang disimpan:</p>
+                            <ul class="text-sm list-disc list-inside space-y-1">
+                                @foreach (session('perubahan_kelas_errors') as $err)
+                                    <li>{{ $err }}</li>
+                                @endforeach
+                            </ul>
+                            @if (session('perubahan_kelas_errors_remaining', 0) > 0)
+                                <p class="text-sm mt-2">dan {{ session('perubahan_kelas_errors_remaining') }} error lainnya.</p>
+                            @endif
+                            <p class="text-sm mt-3">Perbaiki file lalu upload ulang.</p>
+                        </div>
+                    @endif
+
+                    @if (session('perubahan_kelas_preview'))
+                        @php $previewData = session('perubahan_kelas_preview'); @endphp
+                        <div class="mb-4 bg-blue-50 border-l-4 border-blue-500 text-blue-700 px-6 py-4 rounded-lg">
+                            <p class="font-semibold">{{ count($previewData) }} murid akan dipindah kelasnya.</p>
+                            @if (session('perubahan_kelas_skipped_noop', 0) > 0)
+                                <p class="text-sm mt-1">{{ session('perubahan_kelas_skipped_noop') }} baris dilewati karena kelas baru sama dengan kelas saat ini.</p>
+                            @endif
+                        </div>
+
+                        <div class="overflow-x-auto border border-gray-200 rounded-lg mb-6">
+                            <table class="w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase">NIS</th>
+                                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase">Nama</th>
+                                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase">Kelas Lama</th>
+                                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase">Kelas Baru</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    @foreach ($previewData as $item)
+                                        <tr>
+                                            <td class="px-4 py-2 text-sm font-mono">{{ $item['NIS'] }}</td>
+                                            <td class="px-4 py-2 text-sm">{{ $item['nama_lengkap'] }}</td>
+                                            <td class="px-4 py-2 text-sm">
+                                                <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-semibold">{{ $item['kelas_lama'] }}</span>
+                                            </td>
+                                            <td class="px-4 py-2 text-sm">
+                                                <span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-semibold">{{ $item['kelas_baru'] }}</span>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="flex flex-col-reverse md:flex-row justify-end gap-3">
+                            <form method="POST" action="{{ route('naik-kelas.perubahan-kelas.batal') }}">
+                                @csrf
+                                <x-secondary-button type="submit" class="w-full md:w-auto justify-center">
+                                    Batal
+                                </x-secondary-button>
+                            </form>
+                            <x-primary-button type="button" x-on:click="$dispatch('open-modal', 'confirm-perubahan-kelas')" class="w-full md:w-auto justify-center">
+                                Konfirmasi & Simpan Perubahan
+                            </x-primary-button>
+                        </div>
+
+                        <x-modal name="confirm-perubahan-kelas" :show="false" focusable>
+                            <div class="p-6 border-t-8 border-yellow-500">
+                                <h2 class="text-xl font-bold text-red-600 flex items-center mb-4">
+                                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                    </svg>
+                                    KONFIRMASI PERUBAHAN KELAS
+                                </h2>
+                                <p class="text-base text-gray-800 font-medium">
+                                    Anda akan memindahkan {{ count($previewData) }} murid ke kelas baru sesuai tabel preview.
+                                </p>
+                                <p class="text-red-600 mt-2 font-bold mb-6">Proses ini tidak dapat dibatalkan!</p>
+                                <div class="flex flex-col-reverse md:flex-row justify-end gap-3">
+                                    <x-secondary-button x-on:click="$dispatch('close')">
+                                        Batal
+                                    </x-secondary-button>
+                                    <form method="POST" action="{{ route('naik-kelas.perubahan-kelas.proses') }}">
+                                        @csrf
+                                        <x-danger-button type="submit">
+                                            YA, SIMPAN PERUBAHAN
+                                        </x-danger-button>
+                                    </form>
+                                </div>
+                            </div>
+                        </x-modal>
+                    @else
+                        <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                            <a href="{{ route('naik-kelas.perubahan-kelas.template') }}" class="inline-flex items-center justify-center px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold rounded-lg transition-colors">
+                                Download Template
+                            </a>
+                        </div>
+                        <form method="POST" action="{{ route('naik-kelas.perubahan-kelas.preview') }}" enctype="multipart/form-data">
+                            @csrf
+                            <div class="mb-4">
+                                <label for="perubahan_kelas_file" class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Upload File Perubahan Kelas (.xlsx)
+                                </label>
+                                <input type="file" name="file" id="perubahan_kelas_file" accept=".xlsx" required
+                                    class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                                <x-input-error :messages="$errors->get('file')" class="mt-2" />
+                            </div>
+                            <button type="submit" class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                                Preview Perubahan
+                            </button>
+                        </form>
+                    @endif
+                </div>
+            </div>
         </div>
     </div>
 

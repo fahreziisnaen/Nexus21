@@ -341,3 +341,39 @@ test('non-admin cannot batal perubahan kelas', function () {
 
     $response->assertRedirect(route('dashboard'));
 });
+
+test('naik kelas page shows perubahan kelas upload form by default', function () {
+    $admin = makeAdmin();
+
+    $response = $this->actingAs($admin)->get(route('naik-kelas.index'));
+
+    $response->assertOk();
+    $response->assertSee('Form Perubahan Kelas');
+    $response->assertSee('Download Template');
+    $response->assertDontSee('Konfirmasi & Simpan Perubahan');
+});
+
+test('naik kelas page shows validation errors for perubahan kelas', function () {
+    $admin = makeAdmin();
+
+    $response = $this->actingAs($admin)
+        ->withSession(['perubahan_kelas_errors' => ['Baris 2: NIS 123 tidak ditemukan atau bukan murid aktif']])
+        ->get(route('naik-kelas.index'));
+
+    $response->assertSee('Baris 2: NIS 123 tidak ditemukan atau bukan murid aktif');
+});
+
+test('naik kelas page shows preview table and confirm button when preview session exists', function () {
+    $admin = makeAdmin();
+
+    $response = $this->actingAs($admin)
+        ->withSession(['perubahan_kelas_preview' => [
+            ['NIS' => '1111111111', 'nama_lengkap' => 'Budi', 'kelas_lama' => 'XI-1', 'kelas_baru' => 'XI-2'],
+        ]])
+        ->get(route('naik-kelas.index'));
+
+    $response->assertSee('Budi');
+    $response->assertSee('XI-1');
+    $response->assertSee('XI-2');
+    $response->assertSee('Konfirmasi & Simpan Perubahan');
+});
