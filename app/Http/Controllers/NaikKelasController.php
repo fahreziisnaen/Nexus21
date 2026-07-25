@@ -268,9 +268,12 @@ class NaikKelasController extends Controller
                     continue;
                 }
 
-                $cells = $row->getCells();
-                $nis = trim((string) ($cells[0]->getValue() ?? ''));
-                $kelasBaru = trim((string) ($cells[1]->getValue() ?? ''));
+                // getCellAtIndex() dipakai (bukan getCells()[$i]) karena array cell OpenSpout
+                // mengikuti "spans" baris tsb, bukan lebar penuh sheet — baris yang kolom
+                // terakhirnya benar-benar kosong (bukan cuma string kosong) bisa punya cell
+                // yang lebih sedikit dari yang diharapkan.
+                $nis = trim((string) ($row->getCellAtIndex(0)?->getValue() ?? ''));
+                $kelasBaru = trim((string) ($row->getCellAtIndex(1)?->getValue() ?? ''));
 
                 if ($nis === '' && $kelasBaru === '') {
                     continue;
@@ -387,14 +390,22 @@ class NaikKelasController extends Controller
 
         session()->forget('perubahan_kelas_preview');
 
-        $rows = $this->parsePerubahanKelasFile($request->file('file')->getRealPath());
+        try {
+            $rows = $this->parsePerubahanKelasFile($request->file('file')->getRealPath());
 
-        if (empty($rows)) {
+            if (empty($rows)) {
+                return redirect()->route('naik-kelas.index')
+                    ->with('error_perubahan_kelas', 'File tidak berisi data. Pastikan file memiliki baris data selain header.');
+            }
+
+            $result = $this->validatePerubahanKelasRows($rows);
+        } catch (\Throwable $e) {
+            // Tangkap file corrupt/rusak yang lolos validasi mimes:xlsx, maupun
+            // error tak terduga lain saat parsing/validasi, supaya user selalu
+            // dapat pesan flash yang ramah alih-alih HTTP 500 mentah.
             return redirect()->route('naik-kelas.index')
-                ->with('error_perubahan_kelas', 'File tidak berisi data. Pastikan file memiliki baris data selain header.');
+                ->with('error_perubahan_kelas', 'Gagal membaca file. Pastikan file berformat Excel (.xlsx) yang valid.');
         }
-
-        $result = $this->validatePerubahanKelasRows($rows);
 
         if (! empty($result['errors'])) {
             $displayedErrors = array_slice($result['errors'], 0, 10);

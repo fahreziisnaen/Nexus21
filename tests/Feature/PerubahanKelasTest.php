@@ -159,6 +159,23 @@ test('preview shows info message and stores nothing when all rows are noop', fun
     $this->assertNull(session('perubahan_kelas_preview'));
 });
 
+test('preview shows graceful validation error, not a crash, when a row has only NIS and no cell at all for Kelas Baru', function () {
+    $admin = makeAdmin();
+
+    // Row::fromValues(['1111111111']) writes a row with only 1 cell (no second
+    // cell at all, not even an empty one) -- OpenSpout's per-row cell array is
+    // only as wide as that row's own span, so getCellAtIndex(1) must be handled
+    // as possibly-null rather than assumed to exist.
+    $file = makeXlsxUploadFile([['1111111111']]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('naik-kelas.perubahan-kelas.preview'), ['file' => $file]);
+
+    expect(session('perubahan_kelas_errors'))
+        ->toContain('Baris 2: NIS dan Kelas Baru wajib diisi');
+    $this->assertNull(session('perubahan_kelas_preview'));
+});
+
 test('preview shows error when file has no data rows', function () {
     $admin = makeAdmin();
 
