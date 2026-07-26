@@ -14,9 +14,8 @@ services:
       - vendor_data:/var/www/vendor
       - node_modules_data:/var/www/node_modules
       - public_build_data:/var/www/public/build
-    environment:
-      - APP_ENV=local
-      - APP_DEBUG=true
+    env_file:
+      - .env.docker
     depends_on:
       db:
         condition: service_healthy

@@ -5,6 +5,7 @@ set -e
 if [ ! -f /var/www/vendor/autoload.php ]; then
     echo "📦 vendor/ not found, running composer install..."
     composer install \
+        --no-dev \
         --no-scripts \
         --no-interaction \
         --prefer-dist \
@@ -39,7 +40,7 @@ php artisan view:cache
 php artisan storage:link --force 2>/dev/null || true
 
 # ── Fix permissions storage ───────────────────────────────────────────────────
-chmod -R 777 /var/www/storage /var/www/bootstrap/cache
+chmod -R 775 /var/www/storage /var/www/bootstrap/cache
 
 echo "🚀 Starting php-fpm..."
 exec php-fpm
