@@ -16,7 +16,9 @@ class ReportController extends Controller
      */
     public function index()
     {
-        $kelasList = Kelas::orderByRaw("
+        $user = auth()->user();
+
+        $kelasQuery = Kelas::orderByRaw("
             CASE
                 WHEN kelas LIKE 'X-%' THEN 1
                 WHEN kelas LIKE 'XI-%' THEN 2
@@ -24,7 +26,13 @@ class ReportController extends Controller
                 ELSE 4
             END,
             CAST(SUBSTRING_INDEX(kelas, '-', -1) AS UNSIGNED)
-        ")->pluck('kelas');
+        ");
+
+        if ($user && $user->role === 'Walikelas') {
+            $kelasQuery->where('username', $user->username);
+        }
+
+        $kelasList = $kelasQuery->pluck('kelas');
 
         $semesterList = SemesterHelper::list();
 
@@ -37,6 +45,36 @@ class ReportController extends Controller
             'mode'     => 'required|in:kelas,murid',
             'semester' => 'required|string',
         ]);
+
+        $user = auth()->user();
+        if ($user && $user->role === 'Walikelas') {
+            $ownKelas = Kelas::where('username', $user->username)->pluck('kelas')->toArray();
+
+            if (empty($ownKelas)) {
+                return back()->with('error', 'Anda tidak memiliki kelas yang dikelola.');
+            }
+
+            $selectedLevel = $request->input('selected_level');
+
+            if ($selectedLevel) {
+                // Restrict the level selection to only the Walikelas's own classes
+                // within that level, then route through kelas_list like a normal
+                // selection so generatePerKelas()/generatePerMurid() never see the
+                // unrestricted level and re-derive the full class list themselves.
+                $request->merge([
+                    'kelas_list' => array_values(array_filter(
+                        $ownKelas,
+                        fn ($k) => str_starts_with($k, $selectedLevel . '-')
+                    )),
+                    'selected_level' => null,
+                ]);
+            } else {
+                $selectedKelas = $request->input('kelas_list', []);
+                $request->merge([
+                    'kelas_list' => array_values(array_intersect($selectedKelas, $ownKelas)),
+                ]);
+            }
+        }
 
         // Perbesar limit untuk report besar
         ini_set('memory_limit', '512M');
