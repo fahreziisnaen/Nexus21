@@ -275,26 +275,6 @@ class ReportController extends Controller
     }
 
     /**
-     * API: list murid for select2 / search.
-     */
-    public function muridList(Request $request)
-    {
-        $search = $request->input('q', '');
-        $query = Murid::where('status', 'Aktif');
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('nama_lengkap', 'like', "%{$search}%")
-                  ->orWhere('NIS', 'like', "%{$search}%");
-            });
-        }
-
-        return $query->orderBy('nama_lengkap')
-            ->take(50)
-            ->get(['NIS', 'nama_lengkap', 'kelas']);
-    }
-
-    /**
      * Natural sort helper for kelas.
      */
     private function kelasSort(string $kelas): int
