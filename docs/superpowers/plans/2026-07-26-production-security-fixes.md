@@ -361,6 +361,332 @@ git commit -m "fix: prevent arbitrary file write via ttd_murid signature upload 
 
 ---
 
+### Task 11: Fix path-traversal → arbitrary file deletion in `ttd_murid` passthrough (discovered during Task 1 review)
+
+**Files:**
+- Modify: `app/Http/Controllers/PelanggaranController.php:372-426` (`update()`'s signature-handling block), plus a new private helper method
+- Test: `tests/Feature/PelanggaranSignatureUploadTest.php` (append)
+
+**Interfaces:**
+- Consumes: `makeStaffUser()`, `makeSignatureTestMurid()`, `makeSignatureTestJenis()`, `tinyPngDataUri()` from Task 1's test file.
+- Produces: new private method `safeDeleteTtdMurid(?string $relativePath): void` on `PelanggaranController`, used by both delete sites in `update()`.
+
+**Context:** Task 1's review found that `update()`'s signature-handling `else` branch (for "this is an existing file path, keep it unchanged") does no validation at all on the client-supplied `ttd_murid` string before storing it, and that stored string is later passed unvalidated into two raw `unlink()` calls (one when re-uploading a new signature, one on `"CLEAR"`). Since Laravel's Flysystem-based `Storage::delete()` (used correctly elsewhere in this same controller, e.g. `destroy()`) blocks `..` traversal but a raw `unlink()` does not, an attacker with any Admin/TATIB account can: (1) PUT `ttd_murid = "../../../../../var/www/public/index.php"` (or any path) in one request — it passes through untouched and gets saved to the DB; (2) PUT `ttd_murid = "CLEAR"` in a follow-up request — the stored traversal path is fed straight into `unlink()`, deleting an arbitrary file the web server user can write to. This task closes both the write-time hole (validate the passthrough value) and the delete-time hole (validate again immediately before any `unlink()`, as defense in depth against any other path that might reach a bad value in the future). It also fixes a related quality gap the same review found: `update()`'s new-signature-write branch doesn't check `file_put_contents()`'s return value before committing the new path to `$validated` (unlike `store()`, which already does).
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `tests/Feature/PelanggaranSignatureUploadTest.php`:
+
+```php
+test('update rejects a path-traversal value in ttd_murid passthrough', function () {
+    $user = makeStaffUser();
+    $murid = makeSignatureTestMurid('8888888888');
+    $jenis = makeSignatureTestJenis();
+
+    $pelanggaran = Pelanggaran::create([
+        'NIS' => $murid->NIS,
+        'nama_murid' => $murid->nama_lengkap,
+        'gender' => $murid->gender,
+        'kelas' => $murid->kelas,
+        'username' => $user->username,
+        'jenis_pelanggaran' => $jenis->nama,
+        'poin' => $jenis->poin,
+        'tanggal' => now()->toDateString(),
+        'semester' => '2025/2026-1',
+        'ttd_murid' => 'ttd-pelanggaran/existing_signature.png',
+    ]);
+
+    $response = $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
+        'NIS' => $murid->NIS,
+        'jenis_pelanggaran' => $jenis->nama,
+        'tanggal' => now()->toDateString(),
+        'ttd_murid' => '../../../../../public/index.php',
+    ]);
+
+    $response->assertRedirect(route('pelanggaran.index'));
+
+    $pelanggaran->refresh();
+    expect($pelanggaran->ttd_murid)->toBe('ttd-pelanggaran/existing_signature.png');
+});
+
+test('CLEAR never deletes a file outside ttd-pelanggaran even if a bad path reached the DB', function () {
+    $user = makeStaffUser();
+    $murid = makeSignatureTestMurid('1212121212');
+    $jenis = makeSignatureTestJenis();
+
+    $pelanggaran = Pelanggaran::create([
+        'NIS' => $murid->NIS,
+        'nama_murid' => $murid->nama_lengkap,
+        'gender' => $murid->gender,
+        'kelas' => $murid->kelas,
+        'username' => $user->username,
+        'jenis_pelanggaran' => $jenis->nama,
+        'poin' => $jenis->poin,
+        'tanggal' => now()->toDateString(),
+        'semester' => '2025/2026-1',
+    ]);
+
+    $canaryPath = storage_path('app/public_test_canary.txt');
+    file_put_contents($canaryPath, 'do not delete me');
+
+    // Simulate a bad value already in the DB (e.g. from before this fix existed),
+    // bypassing the app layer entirely, to prove the delete-time guard is what
+    // protects the canary — not just the write-time validation.
+    $pelanggaran->forceFill(['ttd_murid' => '../public_test_canary.txt'])->save();
+
+    $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
+        'NIS' => $murid->NIS,
+        'jenis_pelanggaran' => $jenis->nama,
+        'tanggal' => now()->toDateString(),
+        'ttd_murid' => 'CLEAR',
+    ]);
+
+    expect(file_exists($canaryPath))->toBeTrue();
+
+    @unlink($canaryPath);
+});
+
+test('update preserves a well-formed existing ttd_murid path unchanged', function () {
+    $user = makeStaffUser();
+    $murid = makeSignatureTestMurid('9999999999');
+    $jenis = makeSignatureTestJenis();
+
+    $pelanggaran = Pelanggaran::create([
+        'NIS' => $murid->NIS,
+        'nama_murid' => $murid->nama_lengkap,
+        'gender' => $murid->gender,
+        'kelas' => $murid->kelas,
+        'username' => $user->username,
+        'jenis_pelanggaran' => $jenis->nama,
+        'poin' => $jenis->poin,
+        'tanggal' => now()->toDateString(),
+        'semester' => '2025/2026-1',
+        'ttd_murid' => 'ttd-pelanggaran/existing_signature.png',
+    ]);
+
+    $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
+        'NIS' => $murid->NIS,
+        'jenis_pelanggaran' => $jenis->nama,
+        'tanggal' => now()->toDateString(),
+        'ttd_murid' => 'ttd-pelanggaran/existing_signature.png',
+    ]);
+
+    $pelanggaran->refresh();
+    expect($pelanggaran->ttd_murid)->toBe('ttd-pelanggaran/existing_signature.png');
+});
+
+test('update saves a genuine PNG signature with a hardcoded .png extension', function () {
+    $user = makeStaffUser();
+    $murid = makeSignatureTestMurid('1010101010');
+    $jenis = makeSignatureTestJenis();
+
+    $pelanggaran = Pelanggaran::create([
+        'NIS' => $murid->NIS,
+        'nama_murid' => $murid->nama_lengkap,
+        'gender' => $murid->gender,
+        'kelas' => $murid->kelas,
+        'username' => $user->username,
+        'jenis_pelanggaran' => $jenis->nama,
+        'poin' => $jenis->poin,
+        'tanggal' => now()->toDateString(),
+        'semester' => '2025/2026-1',
+    ]);
+
+    $response = $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
+        'NIS' => $murid->NIS,
+        'jenis_pelanggaran' => $jenis->nama,
+        'tanggal' => now()->toDateString(),
+        'ttd_murid' => tinyPngDataUri(),
+    ]);
+
+    $response->assertRedirect(route('pelanggaran.index'));
+
+    $pelanggaran->refresh();
+    expect($pelanggaran->ttd_murid)->not->toBeNull();
+    expect($pelanggaran->ttd_murid)->toEndWith('.png');
+
+    $fullPath = storage_path('app/public/' . $pelanggaran->ttd_murid);
+    expect(file_exists($fullPath))->toBeTrue();
+
+    @unlink($fullPath);
+});
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `php artisan test --filter=PelanggaranSignatureUploadTest`
+Expected: FAIL — either the known migration blocker, or (if runnable) the first two new tests fail because no validation/guard exists yet.
+
+- [ ] **Step 3: Add the `safeDeleteTtdMurid` helper and fix the signature-handling block**
+
+In `app/Http/Controllers/PelanggaranController.php`, find the entire block (inside `update()`):
+
+```php
+        // Handle signature update
+        if (isset($validated["ttd_murid"])) {
+            if (!empty($validated["ttd_murid"])) {
+                // Check if it's new base64 data (contains ";base64,")
+                if (strpos($validated["ttd_murid"], ';base64,') !== false) {
+                    $image_parts = explode(";base64,", $validated["ttd_murid"]);
+                    $image_base64 = count($image_parts) === 2
+                        ? base64_decode($image_parts[1], true)
+                        : false;
+
+                    if ($image_base64 !== false && strlen($image_base64) > 0 && getimagesizefromstring($image_base64) !== false) {
+                        // Hapus file lama jika ada
+                        if ($pelanggaran->ttd_murid) {
+                            $oldPath = storage_path('app/public/' . $pelanggaran->ttd_murid);
+                            if (file_exists($oldPath)) {
+                                unlink($oldPath);
+                            }
+                        }
+
+                        $safeName = preg_replace("/[^a-zA-Z0-9]/", "_", $validated["nama_murid"] ?? $pelanggaran->nama_murid ?? "murid");
+                        $date = \Carbon\Carbon::parse($validated["tanggal"])->format("Y-m-d_H-i-s");
+                        // Extension is always .png — never derived from attacker-supplied input.
+                        $filename = "{$safeName}_{$date}_ttd.png";
+
+                        // Simpan ke storage/app/public/ttd-pelanggaran/
+                        $storagePath = storage_path('app/public/ttd-pelanggaran');
+                        if (!file_exists($storagePath)) {
+                            mkdir($storagePath, 0755, true);
+                        }
+
+                        $fullPath = $storagePath . '/' . $filename;
+                        file_put_contents($fullPath, $image_base64);
+                        $validated["ttd_murid"] = "ttd-pelanggaran/" . $filename;
+                    } else {
+                        // Base64 tidak valid, pertahankan nilai lama
+                        unset($validated["ttd_murid"]);
+                    }
+                } elseif ($validated["ttd_murid"] === "CLEAR") {
+                    // Hapus file lama jika ada
+                    if ($pelanggaran->ttd_murid) {
+                        $oldPath = storage_path('app/public/' . $pelanggaran->ttd_murid);
+                        if (file_exists($oldPath)) {
+                            unlink($oldPath);
+                        }
+                    }
+                    $validated["ttd_murid"] = null;
+                } else {
+                    // Ini adalah path file yang sudah ada (misal: "ttd-pelanggaran/xxx.jpg")
+                    // Pertahankan nilai ini tanpa perubahan
+                }
+            } else {
+                // Nilai kosong, hapus dari array agar tidak menimpa nilai lama
+                unset($validated["ttd_murid"]);
+            }
+        }
+```
+
+Replace with:
+
+```php
+        // Handle signature update
+        if (isset($validated["ttd_murid"])) {
+            if (!empty($validated["ttd_murid"])) {
+                // Check if it's new base64 data (contains ";base64,")
+                if (strpos($validated["ttd_murid"], ';base64,') !== false) {
+                    $image_parts = explode(";base64,", $validated["ttd_murid"]);
+                    $image_base64 = count($image_parts) === 2
+                        ? base64_decode($image_parts[1], true)
+                        : false;
+
+                    if ($image_base64 !== false && strlen($image_base64) > 0 && getimagesizefromstring($image_base64) !== false) {
+                        // Hapus file lama jika ada
+                        $this->safeDeleteTtdMurid($pelanggaran->ttd_murid);
+
+                        $safeName = preg_replace("/[^a-zA-Z0-9]/", "_", $validated["nama_murid"] ?? $pelanggaran->nama_murid ?? "murid");
+                        $date = \Carbon\Carbon::parse($validated["tanggal"])->format("Y-m-d_H-i-s");
+                        // Extension is always .png — never derived from attacker-supplied input.
+                        $filename = "{$safeName}_{$date}_ttd.png";
+
+                        // Simpan ke storage/app/public/ttd-pelanggaran/
+                        $storagePath = storage_path('app/public/ttd-pelanggaran');
+                        if (!file_exists($storagePath)) {
+                            mkdir($storagePath, 0755, true);
+                        }
+
+                        $fullPath = $storagePath . '/' . $filename;
+                        if (file_put_contents($fullPath, $image_base64) !== false) {
+                            $validated["ttd_murid"] = "ttd-pelanggaran/" . $filename;
+                        } else {
+                            unset($validated["ttd_murid"]);
+                        }
+                    } else {
+                        // Base64 tidak valid, pertahankan nilai lama
+                        unset($validated["ttd_murid"]);
+                    }
+                } elseif ($validated["ttd_murid"] === "CLEAR") {
+                    // Hapus file lama jika ada
+                    $this->safeDeleteTtdMurid($pelanggaran->ttd_murid);
+                    $validated["ttd_murid"] = null;
+                } else {
+                    // Ini adalah path file yang sudah ada (misal: "ttd-pelanggaran/xxx.png"),
+                    // dikirim balik oleh form edit lewat hidden input. Validasi ketat di sini
+                    // karena nilai ini datang langsung dari klien dan dipakai untuk unlink()
+                    // pada request berikutnya — tanpa ini, string path-traversal bisa tersimpan
+                    // lalu menghapus file sembarang saat "CLEAR" dikirim.
+                    if (! preg_match('/^ttd-pelanggaran\/[A-Za-z0-9_]+\.png$/', $validated["ttd_murid"])) {
+                        unset($validated["ttd_murid"]);
+                    }
+                    // Jika valid, biarkan nilai ini tanpa perubahan (path file yang sudah ada).
+                }
+            } else {
+                // Nilai kosong, hapus dari array agar tidak menimpa nilai lama
+                unset($validated["ttd_murid"]);
+            }
+        }
+```
+
+Then add this private method to the class (e.g. directly after `update()`, before `destroy()`):
+
+```php
+    /**
+     * Delete a stored ttd_murid file, refusing anything that isn't a plain
+     * filename inside the ttd-pelanggaran directory. This is a second guard
+     * in addition to write-time validation, in case a value ever reaches the
+     * DB some other way (e.g. a row written before this validation existed).
+     */
+    private function safeDeleteTtdMurid(?string $relativePath): void
+    {
+        if (! $relativePath || ! preg_match('/^ttd-pelanggaran\/[A-Za-z0-9_]+\.png$/', $relativePath)) {
+            return;
+        }
+
+        $fullPath = storage_path('app/public/' . $relativePath);
+        if (file_exists($fullPath)) {
+            unlink($fullPath);
+        }
+    }
+```
+
+- [ ] **Step 4: Verify with a standalone PHP probe**
+
+```bash
+php -r '
+var_dump((bool) preg_match("/^ttd-pelanggaran\/[A-Za-z0-9_]+\.png\$/", "../../../../../public/index.php")); // expect bool(false)
+var_dump((bool) preg_match("/^ttd-pelanggaran\/[A-Za-z0-9_]+\.png\$/", "../public_test_canary.txt")); // expect bool(false)
+var_dump((bool) preg_match("/^ttd-pelanggaran\/[A-Za-z0-9_]+\.png\$/", "ttd-pelanggaran/existing_signature.png")); // expect bool(true)
+'
+```
+
+Expected: `bool(false)`, `bool(false)`, `bool(true)`.
+
+- [ ] **Step 5: Run the tests to verify they pass**
+
+Run: `php artisan test --filter=PelanggaranSignatureUploadTest`
+Expected: PASS if runnable; otherwise confirm the known migration blocker and hand-trace all tests in this file (both Task 1's and this task's) against the final diff.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/Http/Controllers/PelanggaranController.php tests/Feature/PelanggaranSignatureUploadTest.php
+git commit -m "fix: close path-traversal arbitrary file deletion in ttd_murid passthrough"
+```
+
+---
+
 ### Task 2: Fix `ReportController` missing access control
 
 **Files:**
