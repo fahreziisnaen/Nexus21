@@ -289,7 +289,7 @@ class NaikKelasController extends Controller
 
                     if ($rowIndex === 1) {
                         if ($col0 !== 'NIS' || $col1 !== 'Kelas Baru') {
-                            throw new \RuntimeException("Format file tidak sesuai. Pastikan file memiliki header 'NIS' dan 'Kelas Baru' pada baris pertama.");
+                            throw new \App\Exceptions\PerubahanKelasFileException("Format file tidak sesuai. Pastikan file memiliki header 'NIS' dan 'Kelas Baru' pada baris pertama.");
                         }
 
                         continue;
@@ -450,7 +450,7 @@ class NaikKelasController extends Controller
             // RuntimeException sengaja dilempar dengan pesan yang sudah ramah untuk
             // ditampilkan ke user (mis. validasi header file). Selain itu, tampilkan
             // pesan generik supaya detail teknis (mis. file zip korup) tidak bocor.
-            $message = $e instanceof \RuntimeException
+            $message = $e instanceof \App\Exceptions\PerubahanKelasFileException
                 ? $e->getMessage()
                 : 'Gagal membaca file. Pastikan file berformat Excel (.xlsx) yang valid.';
 

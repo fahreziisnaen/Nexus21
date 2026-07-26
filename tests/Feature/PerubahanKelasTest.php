@@ -460,3 +460,22 @@ test('naik kelas page shows preview table and confirm button when preview sessio
     // (Htmlable, not re-escaped by {{ }}). Pass false to search for the raw text.
     $response->assertSee('Konfirmasi & Simpan Perubahan', false);
 });
+
+test('QueryException is not an instance of PerubahanKelasFileException', function () {
+    $queryException = new \Illuminate\Database\QueryException(
+        'mysql',
+        'select 1',
+        [],
+        new \PDOException('simulated db fault')
+    );
+
+    expect($queryException instanceof \App\Exceptions\PerubahanKelasFileException)->toBeFalse();
+});
+
+test('PerubahanKelasFileException is a RuntimeException usable for the header-validation error', function () {
+    $fileException = new \App\Exceptions\PerubahanKelasFileException('Format file tidak sesuai.');
+
+    expect($fileException instanceof \App\Exceptions\PerubahanKelasFileException)->toBeTrue();
+    expect($fileException instanceof \RuntimeException)->toBeTrue();
+    expect($fileException->getMessage())->toBe('Format file tidak sesuai.');
+});
