@@ -634,11 +634,13 @@ class PelanggaranController extends Controller
                 . "Demikian yang dapat kami sampaikan, Terimakasih";
 
             $whatsappHost = env('WHATSAPP_HOST', 'http://whatsapp:3000');
-            
-            \Illuminate\Support\Facades\Http::timeout(5)->post("{$whatsappHost}/send-message", [
-                'id' => $phoneNumber,
-                'message' => $message,
-            ]);
+
+            \Illuminate\Support\Facades\Http::timeout(5)
+                ->withToken(env('WHATSAPP_SHARED_SECRET', ''))
+                ->post("{$whatsappHost}/send-message", [
+                    'id' => $phoneNumber,
+                    'message' => $message,
+                ]);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Gagal mengirim WA notifikasi ke walikelas: ' . $e->getMessage());
         }

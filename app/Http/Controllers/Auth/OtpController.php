@@ -94,11 +94,12 @@ class OtpController extends Controller
             // Using logic: if in docker can use `nexus_whatsapp` or `localhost`.
             // The docker-compose uses `app` and `whatsapp` services.
             $whatsappHost = env('WHATSAPP_HOST', 'http://whatsapp:3000');
-            
-            $response = Http::post("{$whatsappHost}/send-message", [
-                'id' => $phoneNumber,
-                'message' => $message,
-            ]);
+
+            $response = Http::withToken(env('WHATSAPP_SHARED_SECRET', ''))
+                ->post("{$whatsappHost}/send-message", [
+                    'id' => $phoneNumber,
+                    'message' => $message,
+                ]);
 
             if (!$response->successful()) {
                 Log::error('Gagal mengirim OTP via WhatsApp: ' . $response->body());

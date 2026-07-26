@@ -4,11 +4,38 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
+import crypto from 'crypto';
 
 const app = express();
 const PORT = 3000;
+const SHARED_SECRET = process.env.WHATSAPP_SHARED_SECRET || '';
 
 app.use(bodyParser.json());
+
+function timingSafeEqualStrings(a, b) {
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) {
+        return false;
+    }
+    return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function requireSharedSecret(req, res, next) {
+    if (!SHARED_SECRET) {
+        console.warn('WHATSAPP_SHARED_SECRET is not set — refusing all requests. Set it in the environment to enable this endpoint.');
+        return res.status(503).json({ status: false, error: 'Service not configured' });
+    }
+
+    const authHeader = req.headers['authorization'] || '';
+    const expected = `Bearer ${SHARED_SECRET}`;
+
+    if (!timingSafeEqualStrings(authHeader, expected)) {
+        return res.status(401).json({ status: false, error: 'Unauthorized' });
+    }
+
+    next();
+}
 
 let sock; // Global socket variable used by the API
 
@@ -65,7 +92,7 @@ async function connectToWhatsApp() {
 }
 
 // Endpoint to send message is defined ONCE
-app.post('/send-message', async (req, res) => {
+app.post('/send-message', requireSharedSecret, async (req, res) => {
     // Expected payload: { id: '628xxx@c.us', message: 'Hello World' }
     const { id, message } = req.body;
 

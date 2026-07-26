@@ -74,8 +74,8 @@ services:
     volumes:
       - .:/app
     command: sh -c "npm install --omit=dev && node whatsapp-server.js"
-    ports:
-      - "3000:3000"
+    env_file:
+      - .env.docker
     networks:
       - nexus_network
 
