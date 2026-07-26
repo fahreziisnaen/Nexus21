@@ -381,12 +381,7 @@ class PelanggaranController extends Controller
 
                     if ($image_base64 !== false && strlen($image_base64) > 0 && getimagesizefromstring($image_base64) !== false) {
                         // Hapus file lama jika ada
-                        if ($pelanggaran->ttd_murid) {
-                            $oldPath = storage_path('app/public/' . $pelanggaran->ttd_murid);
-                            if (file_exists($oldPath)) {
-                                unlink($oldPath);
-                            }
-                        }
+                        $this->safeDeleteTtdMurid($pelanggaran->ttd_murid);
 
                         $safeName = preg_replace("/[^a-zA-Z0-9]/", "_", $validated["nama_murid"] ?? $pelanggaran->nama_murid ?? "murid");
                         $date = \Carbon\Carbon::parse($validated["tanggal"])->format("Y-m-d_H-i-s");
@@ -400,24 +395,29 @@ class PelanggaranController extends Controller
                         }
 
                         $fullPath = $storagePath . '/' . $filename;
-                        file_put_contents($fullPath, $image_base64);
-                        $validated["ttd_murid"] = "ttd-pelanggaran/" . $filename;
+                        if (file_put_contents($fullPath, $image_base64) !== false) {
+                            $validated["ttd_murid"] = "ttd-pelanggaran/" . $filename;
+                        } else {
+                            unset($validated["ttd_murid"]);
+                        }
                     } else {
                         // Base64 tidak valid, pertahankan nilai lama
                         unset($validated["ttd_murid"]);
                     }
                 } elseif ($validated["ttd_murid"] === "CLEAR") {
                     // Hapus file lama jika ada
-                    if ($pelanggaran->ttd_murid) {
-                        $oldPath = storage_path('app/public/' . $pelanggaran->ttd_murid);
-                        if (file_exists($oldPath)) {
-                            unlink($oldPath);
-                        }
-                    }
+                    $this->safeDeleteTtdMurid($pelanggaran->ttd_murid);
                     $validated["ttd_murid"] = null;
                 } else {
-                    // Ini adalah path file yang sudah ada (misal: "ttd-pelanggaran/xxx.jpg")
-                    // Pertahankan nilai ini tanpa perubahan
+                    // Ini adalah path file yang sudah ada (misal: "ttd-pelanggaran/xxx.png"),
+                    // dikirim balik oleh form edit lewat hidden input. Validasi ketat di sini
+                    // karena nilai ini datang langsung dari klien dan dipakai untuk unlink()
+                    // pada request berikutnya — tanpa ini, string path-traversal bisa tersimpan
+                    // lalu menghapus file sembarang saat "CLEAR" dikirim.
+                    if (! preg_match('/^ttd-pelanggaran\/[A-Za-z0-9_]+\.png$/', $validated["ttd_murid"])) {
+                        unset($validated["ttd_murid"]);
+                    }
+                    // Jika valid, biarkan nilai ini tanpa perubahan (path file yang sudah ada).
                 }
             } else {
                 // Nilai kosong, hapus dari array agar tidak menimpa nilai lama
@@ -431,6 +431,24 @@ class PelanggaranController extends Controller
         return redirect()
             ->route("pelanggaran.index")
             ->with("success", "Data pelanggaran berhasil diperbarui.");
+    }
+
+    /**
+     * Delete a stored ttd_murid file, refusing anything that isn't a plain
+     * filename inside the ttd-pelanggaran directory. This is a second guard
+     * in addition to write-time validation, in case a value ever reaches the
+     * DB some other way (e.g. a row written before this validation existed).
+     */
+    private function safeDeleteTtdMurid(?string $relativePath): void
+    {
+        if (! $relativePath || ! preg_match('/^ttd-pelanggaran\/[A-Za-z0-9_]+\.png$/', $relativePath)) {
+            return;
+        }
+
+        $fullPath = storage_path('app/public/' . $relativePath);
+        if (file_exists($fullPath)) {
+            unlink($fullPath);
+        }
     }
 
     /**

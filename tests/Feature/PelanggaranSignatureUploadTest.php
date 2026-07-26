@@ -132,3 +132,136 @@ test('update rejects a PHP payload disguised as ttd_murid and writes no php file
 
     assertNoPhpFilesInTtdStorage();
 });
+
+test('update rejects a path-traversal value in ttd_murid passthrough', function () {
+    $user = makeStaffUser();
+    $murid = makeSignatureTestMurid('8888888888');
+    $jenis = makeSignatureTestJenis();
+
+    $pelanggaran = Pelanggaran::create([
+        'NIS' => $murid->NIS,
+        'nama_murid' => $murid->nama_lengkap,
+        'gender' => $murid->gender,
+        'kelas' => $murid->kelas,
+        'username' => $user->username,
+        'jenis_pelanggaran' => $jenis->nama,
+        'poin' => $jenis->poin,
+        'tanggal' => now()->toDateString(),
+        'semester' => '2025/2026-1',
+        'ttd_murid' => 'ttd-pelanggaran/existing_signature.png',
+    ]);
+
+    $response = $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
+        'NIS' => $murid->NIS,
+        'jenis_pelanggaran' => $jenis->nama,
+        'tanggal' => now()->toDateString(),
+        'ttd_murid' => '../../../../../public/index.php',
+    ]);
+
+    $response->assertRedirect(route('pelanggaran.index'));
+
+    $pelanggaran->refresh();
+    expect($pelanggaran->ttd_murid)->toBe('ttd-pelanggaran/existing_signature.png');
+});
+
+test('CLEAR never deletes a file outside ttd-pelanggaran even if a bad path reached the DB', function () {
+    $user = makeStaffUser();
+    $murid = makeSignatureTestMurid('1212121212');
+    $jenis = makeSignatureTestJenis();
+
+    $pelanggaran = Pelanggaran::create([
+        'NIS' => $murid->NIS,
+        'nama_murid' => $murid->nama_lengkap,
+        'gender' => $murid->gender,
+        'kelas' => $murid->kelas,
+        'username' => $user->username,
+        'jenis_pelanggaran' => $jenis->nama,
+        'poin' => $jenis->poin,
+        'tanggal' => now()->toDateString(),
+        'semester' => '2025/2026-1',
+    ]);
+
+    $canaryPath = storage_path('app/public_test_canary.txt');
+    file_put_contents($canaryPath, 'do not delete me');
+
+    // Simulate a bad value already in the DB (e.g. from before this fix existed),
+    // bypassing the app layer entirely, to prove the delete-time guard is what
+    // protects the canary — not just the write-time validation.
+    $pelanggaran->forceFill(['ttd_murid' => '../public_test_canary.txt'])->save();
+
+    $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
+        'NIS' => $murid->NIS,
+        'jenis_pelanggaran' => $jenis->nama,
+        'tanggal' => now()->toDateString(),
+        'ttd_murid' => 'CLEAR',
+    ]);
+
+    expect(file_exists($canaryPath))->toBeTrue();
+
+    @unlink($canaryPath);
+});
+
+test('update preserves a well-formed existing ttd_murid path unchanged', function () {
+    $user = makeStaffUser();
+    $murid = makeSignatureTestMurid('9999999999');
+    $jenis = makeSignatureTestJenis();
+
+    $pelanggaran = Pelanggaran::create([
+        'NIS' => $murid->NIS,
+        'nama_murid' => $murid->nama_lengkap,
+        'gender' => $murid->gender,
+        'kelas' => $murid->kelas,
+        'username' => $user->username,
+        'jenis_pelanggaran' => $jenis->nama,
+        'poin' => $jenis->poin,
+        'tanggal' => now()->toDateString(),
+        'semester' => '2025/2026-1',
+        'ttd_murid' => 'ttd-pelanggaran/existing_signature.png',
+    ]);
+
+    $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
+        'NIS' => $murid->NIS,
+        'jenis_pelanggaran' => $jenis->nama,
+        'tanggal' => now()->toDateString(),
+        'ttd_murid' => 'ttd-pelanggaran/existing_signature.png',
+    ]);
+
+    $pelanggaran->refresh();
+    expect($pelanggaran->ttd_murid)->toBe('ttd-pelanggaran/existing_signature.png');
+});
+
+test('update saves a genuine PNG signature with a hardcoded .png extension', function () {
+    $user = makeStaffUser();
+    $murid = makeSignatureTestMurid('1010101010');
+    $jenis = makeSignatureTestJenis();
+
+    $pelanggaran = Pelanggaran::create([
+        'NIS' => $murid->NIS,
+        'nama_murid' => $murid->nama_lengkap,
+        'gender' => $murid->gender,
+        'kelas' => $murid->kelas,
+        'username' => $user->username,
+        'jenis_pelanggaran' => $jenis->nama,
+        'poin' => $jenis->poin,
+        'tanggal' => now()->toDateString(),
+        'semester' => '2025/2026-1',
+    ]);
+
+    $response = $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
+        'NIS' => $murid->NIS,
+        'jenis_pelanggaran' => $jenis->nama,
+        'tanggal' => now()->toDateString(),
+        'ttd_murid' => tinyPngDataUri(),
+    ]);
+
+    $response->assertRedirect(route('pelanggaran.index'));
+
+    $pelanggaran->refresh();
+    expect($pelanggaran->ttd_murid)->not->toBeNull();
+    expect($pelanggaran->ttd_murid)->toEndWith('.png');
+
+    $fullPath = storage_path('app/public/' . $pelanggaran->ttd_murid);
+    expect(file_exists($fullPath))->toBeTrue();
+
+    @unlink($fullPath);
+});
