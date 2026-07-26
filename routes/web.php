@@ -14,11 +14,6 @@ Route::get("/", function () {
     return redirect()->route("login");
 });
 
-Route::get('/clear-cache', function() {
-    \Illuminate\Support\Facades\Artisan::call('optimize:clear');
-    return 'Configuration, route, and view caches cleared successfully!';
-});
-
 Route::get("/dashboard", function () {
     $user = auth()->user();
 
