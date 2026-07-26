@@ -27,15 +27,19 @@ docker compose up -d --build
 
 ```bash
 docker compose exec app php artisan tinker --execute="
+\$password = \Illuminate\Support\Str::random(16);
 \App\Models\User::create([
     'username'      => 'admin',
     'nama_lengkap'  => 'Administrator',
     'nomor_telepon' => '08123456789',
-    'password'      => bcrypt('password'),
+    'password'      => bcrypt(\$password),
     'role'          => 'Admin'
 ]);
+echo 'Admin password: ' . \$password . PHP_EOL;
 "
 ```
+
+> ⚠️ **Catat password yang ditampilkan** — ini satu-satunya kesempatan untuk melihatnya. Segera login dan ganti password ini lewat halaman profil.
 
 ### 4. Buka di browser
 
@@ -43,7 +47,7 @@ docker compose exec app php artisan tinker --execute="
 http://localhost:8000
 ```
 
-Login: **username** `admin` / **password** `password`
+Login dengan **username** `admin` dan password yang dicatat di langkah 3.
 
 ---
 
@@ -84,8 +88,7 @@ docker compose exec app php artisan cache:clear
 | Service         | URL                       |
 | --------------- | ------------------------- |
 | Aplikasi        | http://localhost:8000     |
-| phpMyAdmin      | http://localhost:8080     |
-| WhatsApp server | http://localhost:3000     |
-| MySQL           | localhost:3306            |
 
-> **phpMyAdmin login:** Username `root`, Password sesuai `DB_PASSWORD` di `.env.docker`
+> **phpMyAdmin, MySQL, dan WhatsApp server tidak lagi dipublikasikan ke host** untuk keamanan — semuanya hanya bisa diakses lewat jaringan Docker internal (`nexus_network`). Untuk mengakses database secara manual saat development:
+> - `docker compose exec db mysql -u root -p` (langsung dari terminal, tanpa expose port apapun)
+> - Kalau benar-benar butuh phpMyAdmin sementara: `docker compose port phpmyadmin 80` untuk cek port internal, lalu buat SSH tunnel ke situ — jangan publish permanen ke internet.
