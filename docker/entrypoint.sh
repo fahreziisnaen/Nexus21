@@ -1,6 +1,16 @@
 #!/bin/sh
 set -e
 
+# ── Buat .env jika belum ada ───────────────────────────────────────────────────
+# Bind mount (.:/var/www) menimpa .env stub yang dibuat Dockerfile saat build,
+# dan .env di-gitignore — jadi clone baru tidak punya .env sama sekali sampai
+# baris ini membuatnya. Tanpa ini, "Generate APP_KEY" di bawah gagal diam-diam
+# (menulis ke file yang belum ada) dan APP_KEY tetap kosong selamanya.
+if [ ! -f /var/www/.env ]; then
+    echo "📄 .env not found, creating from .env.example..."
+    cp /var/www/.env.example /var/www/.env
+fi
+
 # ── Install vendor jika belum ada (tertimpa oleh volume mount) ────────────────
 if [ ! -f /var/www/vendor/autoload.php ]; then
     echo "📦 vendor/ not found, running composer install..."
