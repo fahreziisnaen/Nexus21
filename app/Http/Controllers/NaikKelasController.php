@@ -6,8 +6,10 @@ use App\Models\Kelas;
 use App\Models\Murid;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Common\Entity\Style\Style;
+use OpenSpout\Reader\XLSX\Options as XlsxReaderOptions;
 use OpenSpout\Reader\XLSX\Reader;
 use OpenSpout\Writer\XLSX\Options;
 use OpenSpout\Writer\XLSX\Writer;
@@ -252,43 +254,65 @@ class NaikKelasController extends Controller
 
     /**
      * Parse file Excel perubahan kelas menjadi baris [row_number, nis, kelas_baru].
-     * Baris header (baris pertama) dan baris yang sepenuhnya kosong dilewati.
+     * Baris header (baris pertama) divalidasi isinya, dan baris yang sepenuhnya
+     * kosong (nis dan kelas_baru sama-sama string kosong) dilewati.
      */
     private function parsePerubahanKelasFile(string $path): array
     {
         $rows = [];
-        $reader = new Reader;
-        $reader->open($path);
 
-        $rowIndex = 0;
-        foreach ($reader->getSheetIterator() as $sheet) {
-            foreach ($sheet->getRowIterator() as $row) {
-                $rowIndex++;
-                if ($rowIndex === 1) {
-                    continue;
+        // SHOULD_PRESERVE_EMPTY_ROWS harus true, karena default OpenSpout men-skip
+        // baris yang sepenuhnya kosong di level iterator (bukan cuma di logic kita
+        // di bawah). Kalau tidak diaktifkan, baris kosong (mis. admin menghapus isi
+        // sel dengan tombol Delete alih-alih menghapus barisnya) tidak pernah
+        // dikembalikan oleh iterator, sehingga counter $rowIndex jadi tidak sinkron
+        // dengan nomor baris asli di sheet untuk semua baris setelahnya.
+        $readerOptions = new XlsxReaderOptions;
+        $readerOptions->SHOULD_PRESERVE_EMPTY_ROWS = true;
+
+        $reader = new Reader($readerOptions);
+
+        try {
+            $reader->open($path);
+
+            $rowIndex = 0;
+            foreach ($reader->getSheetIterator() as $sheet) {
+                foreach ($sheet->getRowIterator() as $row) {
+                    $rowIndex++;
+
+                    // getCellAtIndex() dipakai (bukan getCells()[$i]) karena array cell OpenSpout
+                    // mengikuti "spans" baris tsb, bukan lebar penuh sheet — baris yang kolom
+                    // terakhirnya benar-benar kosong (bukan cuma string kosong) bisa punya cell
+                    // yang lebih sedikit dari yang diharapkan.
+                    $col0 = trim((string) ($row->getCellAtIndex(0)?->getValue() ?? ''));
+                    $col1 = trim((string) ($row->getCellAtIndex(1)?->getValue() ?? ''));
+
+                    if ($rowIndex === 1) {
+                        if ($col0 !== 'NIS' || $col1 !== 'Kelas Baru') {
+                            throw new \RuntimeException("Format file tidak sesuai. Pastikan file memiliki header 'NIS' dan 'Kelas Baru' pada baris pertama.");
+                        }
+
+                        continue;
+                    }
+
+                    $nis = $col0;
+                    $kelasBaru = $col1;
+
+                    if ($nis === '' && $kelasBaru === '') {
+                        continue;
+                    }
+
+                    $rows[] = [
+                        'row_number' => $rowIndex,
+                        'nis' => $nis,
+                        'kelas_baru' => $kelasBaru,
+                    ];
                 }
-
-                // getCellAtIndex() dipakai (bukan getCells()[$i]) karena array cell OpenSpout
-                // mengikuti "spans" baris tsb, bukan lebar penuh sheet — baris yang kolom
-                // terakhirnya benar-benar kosong (bukan cuma string kosong) bisa punya cell
-                // yang lebih sedikit dari yang diharapkan.
-                $nis = trim((string) ($row->getCellAtIndex(0)?->getValue() ?? ''));
-                $kelasBaru = trim((string) ($row->getCellAtIndex(1)?->getValue() ?? ''));
-
-                if ($nis === '' && $kelasBaru === '') {
-                    continue;
-                }
-
-                $rows[] = [
-                    'row_number' => $rowIndex,
-                    'nis' => $nis,
-                    'kelas_baru' => $kelasBaru,
-                ];
+                break;
             }
-            break;
+        } finally {
+            $reader->close();
         }
-
-        $reader->close();
 
         return $rows;
     }
@@ -417,11 +441,21 @@ class NaikKelasController extends Controller
 
             $result = $this->validatePerubahanKelasRows($rows);
         } catch (\Throwable $e) {
-            // Tangkap file corrupt/rusak yang lolos validasi mimes:xlsx, maupun
+            // Tangkap file corrupt/rusak yang lolos validasi mimes:xlsx, header yang
+            // tidak sesuai (RuntimeException dari parsePerubahanKelasFile), maupun
             // error tak terduga lain saat parsing/validasi, supaya user selalu
             // dapat pesan flash yang ramah alih-alih HTTP 500 mentah.
+            Log::error('Gagal memproses preview perubahan kelas: '.$e->getMessage(), ['exception' => $e]);
+
+            // RuntimeException sengaja dilempar dengan pesan yang sudah ramah untuk
+            // ditampilkan ke user (mis. validasi header file). Selain itu, tampilkan
+            // pesan generik supaya detail teknis (mis. file zip korup) tidak bocor.
+            $message = $e instanceof \RuntimeException
+                ? $e->getMessage()
+                : 'Gagal membaca file. Pastikan file berformat Excel (.xlsx) yang valid.';
+
             return redirect()->route('naik-kelas.index')
-                ->with('error_perubahan_kelas', 'Gagal membaca file. Pastikan file berformat Excel (.xlsx) yang valid.');
+                ->with('error_perubahan_kelas', $message);
         }
 
         if (! empty($result['errors'])) {
@@ -476,9 +510,14 @@ class NaikKelasController extends Controller
         if (! empty($result['errors'])) {
             session()->forget('perubahan_kelas_preview');
 
+            // Path ini tidak melibatkan file (datanya berasal dari session, bukan upload
+            // baru), jadi jangan flash 'perubahan_kelas_errors' -- box itu dirender view
+            // dengan judul "File berisi data yang tidak valid", yang salah/membingungkan
+            // di sini. Lipat ringkasan errornya ke satu pesan 'error_perubahan_kelas' saja.
+            $detail = implode(' ', array_slice($result['errors'], 0, 3));
+
             return redirect()->route('naik-kelas.index')
-                ->with('perubahan_kelas_errors', array_slice($result['errors'], 0, 10))
-                ->with('error_perubahan_kelas', 'Data sudah berubah sejak preview dibuat. Silakan upload ulang file perubahan kelas.');
+                ->with('error_perubahan_kelas', 'Data sudah berubah sejak preview dibuat, sehingga tidak dapat diproses: '.$detail.' Silakan upload ulang file perubahan kelas.');
         }
 
         DB::beginTransaction();

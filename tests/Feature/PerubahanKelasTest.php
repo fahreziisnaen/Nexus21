@@ -190,6 +190,64 @@ test('preview shows error when file has no data rows', function () {
     );
 });
 
+test('preview reports the correct sheet row number for a data row that comes after a genuinely blank row', function () {
+    $admin = makeAdmin();
+    makeKelas('XI-1');
+    makeKelas('XI-2');
+    makeMurid('1111111111', 'XI-1', 'Aktif', 'Budi');
+
+    // Baris kedua adalah data valid (sukses), baris ketiga sengaja dibuat kosong
+    // secara genuine (cell isinya string kosong, bukan baris yang dihilangkan
+    // dari array $rows) untuk mensimulasikan admin yang menghapus isi sel dengan
+    // tombol Delete alih-alih menghapus barisnya. OpenSpout secara default men-skip
+    // baris semacam ini di level iterator, sehingga counter baris manual bisa jadi
+    // tidak sinkron dengan nomor baris asli di sheet untuk baris keempat (NIS tidak
+    // ditemukan) kalau SHOULD_PRESERVE_EMPTY_ROWS tidak diaktifkan.
+    $file = makeXlsxUploadFile([
+        ['1111111111', 'XI-2'],
+        ['', ''],
+        ['9999999999', 'XI-2'],
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('naik-kelas.perubahan-kelas.preview'), ['file' => $file]);
+
+    expect(session('perubahan_kelas_errors'))
+        ->toContain('Baris 4: NIS 9999999999 tidak ditemukan atau bukan murid aktif');
+    $this->assertNull(session('perubahan_kelas_preview'));
+});
+
+test('preview rejects a file whose header row does not match the expected NIS / Kelas Baru columns', function () {
+    $admin = makeAdmin();
+
+    $file = makeXlsxUploadFile([['1111111111', 'XI-2']], ['Nama', 'Kelas']);
+
+    $response = $this->actingAs($admin)
+        ->post(route('naik-kelas.perubahan-kelas.preview'), ['file' => $file]);
+
+    $response->assertSessionHas(
+        'error_perubahan_kelas',
+        "Format file tidak sesuai. Pastikan file memiliki header 'NIS' dan 'Kelas Baru' pada baris pertama."
+    );
+    $response->assertSessionMissing('perubahan_kelas_errors');
+    $this->assertNull(session('perubahan_kelas_preview'));
+});
+
+test('preview rejects a file whose header columns are swapped', function () {
+    $admin = makeAdmin();
+
+    $file = makeXlsxUploadFile([['XI-2', '1111111111']], ['Kelas Baru', 'NIS']);
+
+    $response = $this->actingAs($admin)
+        ->post(route('naik-kelas.perubahan-kelas.preview'), ['file' => $file]);
+
+    $response->assertSessionHas(
+        'error_perubahan_kelas',
+        "Format file tidak sesuai. Pastikan file memiliki header 'NIS' dan 'Kelas Baru' pada baris pertama."
+    );
+    $this->assertNull(session('perubahan_kelas_preview'));
+});
+
 test('non-admin cannot preview perubahan kelas', function () {
     $walikelas = User::factory()->create(['role' => 'Walikelas']);
     $file = makeXlsxUploadFile([['1111111111', 'XI-2']]);
@@ -309,6 +367,14 @@ test('proses rejects and clears session when data became stale since preview', f
     $response = $this->actingAs($admin)->post(route('naik-kelas.perubahan-kelas.proses'));
 
     $response->assertSessionHas('error_perubahan_kelas');
+    // Path ini tidak melibatkan file upload (data berasal dari session), jadi
+    // 'perubahan_kelas_errors' -- yang dirender view dengan judul "File berisi
+    // data yang tidak valid" -- tidak boleh ikut ter-flash di sini, supaya user
+    // tidak melihat dua box yang saling kontradiktif.
+    $response->assertSessionMissing('perubahan_kelas_errors');
+    expect(session('error_perubahan_kelas'))
+        ->toContain('Data sudah berubah sejak preview dibuat')
+        ->toContain('NIS 1111111111 tidak ditemukan atau bukan murid aktif');
     $this->assertNull(session('perubahan_kelas_preview'));
     expect($murid->fresh()->kelas)->toBeNull();
 });
@@ -342,6 +408,16 @@ test('non-admin cannot batal perubahan kelas', function () {
     $response->assertRedirect(route('dashboard'));
 });
 
+// Note: the 3 tests below (through "... shows preview table and confirm
+// button when preview session exists") all GET route('naik-kelas.index'),
+// which routes through NaikKelasController::index(). That pre-existing method
+// (not part of this feature) sorts murid with orderByRaw(...) containing
+// SUBSTRING_INDEX(...), a MySQL-only SQL function unsupported by SQLite. So
+// these tests cannot execute against this sandbox's SQLite test DB (even once
+// the unrelated migration blocker is fixed) -- they are correct tests that
+// would pass against the project's real MySQL database (see .env.example,
+// DB_CONNECTION=mysql). They will not run under this project's SQLite test
+// config (phpunit.xml).
 test('naik kelas page shows perubahan kelas upload form by default', function () {
     $admin = makeAdmin();
 
@@ -350,7 +426,10 @@ test('naik kelas page shows perubahan kelas upload form by default', function ()
     $response->assertOk();
     $response->assertSee('Form Perubahan Kelas');
     $response->assertSee('Download Template');
-    $response->assertDontSee('Konfirmasi & Simpan Perubahan');
+    // assertDontSee() HTML-escapes its argument by default, so this must pass
+    // false to search for the raw '&' the button actually renders (it flows
+    // through a Blade component slot, which is Htmlable and not re-escaped).
+    $response->assertDontSee('Konfirmasi & Simpan Perubahan', false);
 });
 
 test('naik kelas page shows validation errors for perubahan kelas', function () {
@@ -375,5 +454,9 @@ test('naik kelas page shows preview table and confirm button when preview sessio
     $response->assertSee('Budi');
     $response->assertSee('XI-1');
     $response->assertSee('XI-2');
-    $response->assertSee('Konfirmasi & Simpan Perubahan');
+    // assertSee() HTML-escapes its argument by default, which would search for
+    // 'Konfirmasi &amp; Simpan Perubahan' -- the actual rendered text is raw
+    // ('&', not '&amp;') because it flows through a Blade component slot
+    // (Htmlable, not re-escaped by {{ }}). Pass false to search for the raw text.
+    $response->assertSee('Konfirmasi & Simpan Perubahan', false);
 });
