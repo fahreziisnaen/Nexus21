@@ -231,6 +231,15 @@ class PelanggaranController extends Controller
      */
     public function show(Pelanggaran $pelanggaran)
     {
+        if (auth()->user()->role === "Walikelas") {
+            return redirect()
+                ->route("pelanggaran.index")
+                ->with(
+                    "error",
+                    "Anda tidak memiliki izin untuk melihat detail data pelanggaran.",
+                );
+        }
+
         return view("pelanggaran.show", compact("pelanggaran"));
     }
 
@@ -491,6 +500,14 @@ class PelanggaranController extends Controller
         $murid = Murid::where('NIS', $nis)->first();
 
         if ($murid) {
+            $user = auth()->user();
+            if ($user && $user->role === 'Walikelas') {
+                $ownKelas = \App\Models\Kelas::where('username', $user->username)->pluck('kelas');
+                if (! $murid->kelas || ! $ownKelas->contains($murid->kelas)) {
+                    return response()->json(['success' => false]);
+                }
+            }
+
             $semesterAktif     = SemesterHelper::current();
             $totalPoin         = Pelanggaran::where('NIS', $nis)->sum('poin');
             $totalPoinSemester = Pelanggaran::where('NIS', $nis)
