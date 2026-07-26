@@ -11,18 +11,24 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Trust only RFC1918 private-network ranges, not '*'. This app's only
-        // internet-facing service is the `nginx` container (docker-compose.yml);
-        // `app` has no published host port and is reachable exclusively from
-        // other containers on the internal `nexus_network` bridge network, which
-        // always falls in these private ranges. Trusting '*' let a client-supplied
-        // X-Forwarded-For header defeat the login rate limiter, which keys on
+        // Trust no proxies. docker/nginx/default.conf's PHP location block does
+        // `include fastcgi_params;`, and the standard fastcgi_params file sets
+        // `fastcgi_param REMOTE_ADDR $remote_addr;` — so PHP-FPM always sees the
+        // TRUE client IP that connected to nginx, not nginx's own container
+        // address. nginx is the internet-facing edge in this deployment (see
+        // docker-compose.yml: only `nginx` publishes a host port); there is no
+        // reverse proxy in front of it, so there is no legitimate source of a
+        // trustworthy X-Forwarded-For header at all. Trusting any range —
+        // including RFC1918 private ranges — let a client whose own IP happens
+        // to fall in that range (e.g. anyone on a LAN/NAT) supply a spoofed
+        // X-Forwarded-For and defeat the login rate limiter, which keys on
         // $request->ip() (see app/Http/Requests/Auth/LoginRequest.php).
-        $middleware->trustProxies(at: [
-            '10.0.0.0/8',
-            '172.16.0.0/12',
-            '192.168.0.0/16',
-        ]);
+        //
+        // If a real reverse proxy/CDN/load-balancer is ever placed in front of
+        // nginx, trust exactly that proxy's specific IP/CIDR here (never a
+        // broad private range or '*'), and confirm it overwrites
+        // X-Forwarded-For rather than appending to client-supplied values.
+        $middleware->trustProxies(at: []);
         $middleware->alias([
             'auth' => \App\Http\Middleware\Authenticate::class,
         ]);

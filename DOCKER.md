@@ -13,6 +13,8 @@ cp .env.docker.example .env.docker
 ```
 
 > Edit `.env.docker` sesuai kebutuhan (database name, password, dsb.) sebelum menjalankan Docker.
+>
+> ⚠️ **Wajib diisi:** `WHATSAPP_SHARED_SECRET` — generate string acak yang panjang (mis. `openssl rand -hex 32`) dan isikan di `.env.docker`. Tanpa ini, login OTP lewat WhatsApp akan selalu gagal dan tidak ada yang bisa login.
 
 ### 2. Build & jalankan semua container
 
@@ -91,4 +93,4 @@ docker compose exec app php artisan cache:clear
 
 > **phpMyAdmin, MySQL, dan WhatsApp server tidak lagi dipublikasikan ke host** untuk keamanan — semuanya hanya bisa diakses lewat jaringan Docker internal (`nexus_network`). Untuk mengakses database secara manual saat development:
 > - `docker compose exec db mysql -u root -p` (langsung dari terminal, tanpa expose port apapun)
-> - Kalau benar-benar butuh phpMyAdmin sementara: `docker compose port phpmyadmin 80` untuk cek port internal, lalu buat SSH tunnel ke situ — jangan publish permanen ke internet.
+> - Kalau benar-benar butuh phpMyAdmin sementara: `docker compose run --rm --publish 127.0.0.1:8080:80 phpmyadmin` (hanya bisa diakses dari mesin ini sendiri, lewat `http://localhost:8080`) — jangan publish ke `0.0.0.0` atau permanen ke internet.
