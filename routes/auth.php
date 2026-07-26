@@ -27,6 +27,7 @@ Route::middleware('guest')->group(function () {
 
     // The POST route is used by the OTP Modal to submit the verification code.
     Route::post('verify-otp', [\App\Http\Controllers\Auth\OtpController::class, 'store'])
+        ->middleware('throttle:5,1')
         ->name('verify-otp.store');
 
     // Redirect untuk route yang dinonaktifkan

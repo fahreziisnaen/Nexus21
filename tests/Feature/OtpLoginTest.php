@@ -50,4 +50,67 @@ class OtpLoginTest extends TestCase
         $response->assertRedirect(route('dashboard', absolute: false));
         $this->assertAuthenticatedAs($user);
     }
+
+    public function test_otp_verification_fails_with_wrong_code_and_tracks_attempts()
+    {
+        $user = User::factory()->create([
+            'username' => 'testuser',
+            'password' => bcrypt('password123'),
+        ]);
+
+        $response = $this->withSession([
+            'auth_otp' => '123456',
+            'auth_username' => 'testuser',
+            'auth_otp_attempts' => 0,
+        ])->post('/verify-otp', [
+            'otp' => '999999',
+        ]);
+
+        $response->assertSessionHas('auth_otp_attempts', 1);
+        $this->assertGuest();
+    }
+
+    public function test_otp_verification_locks_out_after_five_wrong_attempts()
+    {
+        $user = User::factory()->create([
+            'username' => 'testuser',
+            'password' => bcrypt('password123'),
+        ]);
+
+        $response = $this->withSession([
+            'auth_otp' => '123456',
+            'auth_username' => 'testuser',
+            'auth_otp_attempts' => 4,
+        ])->post('/verify-otp', [
+            'otp' => '999999',
+        ]);
+
+        $response->assertRedirect(route('login'));
+        $response->assertSessionMissing('auth_otp');
+        $this->assertGuest();
+    }
+
+    public function test_verify_otp_route_is_rate_limited()
+    {
+        $user = User::factory()->create([
+            'username' => 'testuser',
+            'password' => bcrypt('password123'),
+        ]);
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->withSession([
+                'auth_otp' => '123456',
+                'auth_username' => 'testuser',
+                'auth_otp_attempts' => 0,
+            ])->post('/verify-otp', ['otp' => '000000']);
+        }
+
+        $response = $this->withSession([
+            'auth_otp' => '123456',
+            'auth_username' => 'testuser',
+            'auth_otp_attempts' => 0,
+        ])->post('/verify-otp', ['otp' => '000000']);
+
+        $response->assertStatus(429);
+    }
 }

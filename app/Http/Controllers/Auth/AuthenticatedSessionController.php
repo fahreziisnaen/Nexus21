@@ -40,6 +40,7 @@ class AuthenticatedSessionController extends Controller
         $request->session()->put('auth_username', $user->username);
         $request->session()->put('auth_remember', $request->boolean('remember'));
         $request->session()->put('auth_otp_expires_at', now()->addMinutes(5));
+        $request->session()->put('auth_otp_attempts', 0);
 
         return back()->with([
             'show_otp' => true,
