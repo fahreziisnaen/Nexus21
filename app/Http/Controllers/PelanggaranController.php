@@ -177,13 +177,12 @@ class PelanggaranController extends Controller
         if (! empty($validated["ttd_murid"])) {
             $image_parts = explode(";base64,", $validated["ttd_murid"]);
             if (count($image_parts) === 2) {
-                $image_type_aux = explode("image/", $image_parts[0]);
-                $image_type = $image_type_aux[1] ?? "png";
                 $image_base64 = base64_decode($image_parts[1], true);
-                if ($image_base64 !== false && strlen($image_base64) > 0) {
+                if ($image_base64 !== false && strlen($image_base64) > 0 && getimagesizefromstring($image_base64) !== false) {
                     $safeName = preg_replace("/[^a-zA-Z0-9]/", "_", $validated["nama_murid"] ?? "murid");
                     $date = \Carbon\Carbon::parse($validated["tanggal"])->format("Y-m-d_H-i-s");
-                    $filename = "{$safeName}_{$date}_ttd.{$image_type}";
+                    // Extension is always .png — never derived from attacker-supplied input.
+                    $filename = "{$safeName}_{$date}_ttd.png";
 
                     // Simpan ke storage/app/public/ttd-pelanggaran/
                     $storagePath = storage_path('app/public/ttd-pelanggaran');
@@ -376,7 +375,11 @@ class PelanggaranController extends Controller
                 // Check if it's new base64 data (contains ";base64,")
                 if (strpos($validated["ttd_murid"], ';base64,') !== false) {
                     $image_parts = explode(";base64,", $validated["ttd_murid"]);
-                    if (count($image_parts) == 2) {
+                    $image_base64 = count($image_parts) === 2
+                        ? base64_decode($image_parts[1], true)
+                        : false;
+
+                    if ($image_base64 !== false && strlen($image_base64) > 0 && getimagesizefromstring($image_base64) !== false) {
                         // Hapus file lama jika ada
                         if ($pelanggaran->ttd_murid) {
                             $oldPath = storage_path('app/public/' . $pelanggaran->ttd_murid);
@@ -385,13 +388,10 @@ class PelanggaranController extends Controller
                             }
                         }
 
-                        $image_type_aux = explode("image/", $image_parts[0]);
-                        $image_type = $image_type_aux[1] ?? "png";
-                        $image_base64 = base64_decode($image_parts[1]);
-
                         $safeName = preg_replace("/[^a-zA-Z0-9]/", "_", $validated["nama_murid"] ?? $pelanggaran->nama_murid ?? "murid");
                         $date = \Carbon\Carbon::parse($validated["tanggal"])->format("Y-m-d_H-i-s");
-                        $filename = "{$safeName}_{$date}_ttd.{$image_type}";
+                        // Extension is always .png — never derived from attacker-supplied input.
+                        $filename = "{$safeName}_{$date}_ttd.png";
 
                         // Simpan ke storage/app/public/ttd-pelanggaran/
                         $storagePath = storage_path('app/public/ttd-pelanggaran');
