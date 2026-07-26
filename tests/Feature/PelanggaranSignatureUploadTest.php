@@ -265,3 +265,55 @@ test('update saves a genuine PNG signature with a hardcoded .png extension', fun
 
     @unlink($fullPath);
 });
+
+test('CLEAR actually deletes a real stored signature file with a hyphenated timestamp filename', function () {
+    // Regression test: the generated filename format is "{name}_{Y-m-d_H-i-s}_ttd.png",
+    // which contains hyphens from the timestamp. A validation regex without "-" in its
+    // character class would silently reject every real stored path, making CLEAR a no-op
+    // that nulls the DB column but leaves the file on disk (and still publicly served).
+    $user = makeStaffUser();
+    $murid = makeSignatureTestMurid('1313131313');
+    $jenis = makeSignatureTestJenis();
+
+    $pelanggaran = Pelanggaran::create([
+        'NIS' => $murid->NIS,
+        'nama_murid' => $murid->nama_lengkap,
+        'gender' => $murid->gender,
+        'kelas' => $murid->kelas,
+        'username' => $user->username,
+        'jenis_pelanggaran' => $jenis->nama,
+        'poin' => $jenis->poin,
+        'tanggal' => now()->toDateString(),
+        'semester' => '2025/2026-1',
+    ]);
+
+    $uploadResponse = $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
+        'NIS' => $murid->NIS,
+        'jenis_pelanggaran' => $jenis->nama,
+        'tanggal' => now()->toDateString(),
+        'ttd_murid' => tinyPngDataUri(),
+    ]);
+    $uploadResponse->assertRedirect(route('pelanggaran.index'));
+
+    $pelanggaran->refresh();
+    expect($pelanggaran->ttd_murid)->not->toBeNull();
+    // Sanity check that this is a realistic, hyphenated filename (not the brief's
+    // hyphen-free fixture), so this test actually exercises the fixed regex.
+    expect($pelanggaran->ttd_murid)->toContain('-');
+
+    $fullPath = storage_path('app/public/' . $pelanggaran->ttd_murid);
+    expect(file_exists($fullPath))->toBeTrue();
+
+    $clearResponse = $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
+        'NIS' => $murid->NIS,
+        'jenis_pelanggaran' => $jenis->nama,
+        'tanggal' => now()->toDateString(),
+        'ttd_murid' => 'CLEAR',
+    ]);
+    $clearResponse->assertRedirect(route('pelanggaran.index'));
+
+    expect(file_exists($fullPath))->toBeFalse();
+
+    $pelanggaran->refresh();
+    expect($pelanggaran->ttd_murid)->toBeNull();
+});

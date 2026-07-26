@@ -409,15 +409,14 @@ class PelanggaranController extends Controller
                     $this->safeDeleteTtdMurid($pelanggaran->ttd_murid);
                     $validated["ttd_murid"] = null;
                 } else {
-                    // Ini adalah path file yang sudah ada (misal: "ttd-pelanggaran/xxx.png"),
-                    // dikirim balik oleh form edit lewat hidden input. Validasi ketat di sini
-                    // karena nilai ini datang langsung dari klien dan dipakai untuk unlink()
-                    // pada request berikutnya — tanpa ini, string path-traversal bisa tersimpan
-                    // lalu menghapus file sembarang saat "CLEAR" dikirim.
-                    if (! preg_match('/^ttd-pelanggaran\/[A-Za-z0-9_]+\.png$/', $validated["ttd_murid"])) {
+                    // Ini adalah path file yang sudah ada, dikirim balik oleh form edit lewat
+                    // hidden input. Klien hanya boleh mengirim balik nilai yang sudah tersimpan
+                    // di record ini — nilai lain (termasuk path file valid milik record lain)
+                    // ditolak, supaya request PUT tidak bisa dipakai untuk memicu penghapusan
+                    // file record lain lewat request "CLEAR" berikutnya.
+                    if ($validated["ttd_murid"] !== $pelanggaran->ttd_murid) {
                         unset($validated["ttd_murid"]);
                     }
-                    // Jika valid, biarkan nilai ini tanpa perubahan (path file yang sudah ada).
                 }
             } else {
                 // Nilai kosong, hapus dari array agar tidak menimpa nilai lama
@@ -435,13 +434,17 @@ class PelanggaranController extends Controller
 
     /**
      * Delete a stored ttd_murid file, refusing anything that isn't a plain
-     * filename inside the ttd-pelanggaran directory. This is a second guard
-     * in addition to write-time validation, in case a value ever reaches the
-     * DB some other way (e.g. a row written before this validation existed).
+     * filename inside the ttd-pelanggaran directory (hyphens allowed for the
+     * "{name}_{Y-m-d_H-i-s}_ttd.png" timestamp format Task 1 generates; .jpg
+     * and .jpeg are also accepted to allow cleanup of legacy pre-Task-1
+     * rows). This is the guard that stands between the DB value and the
+     * filesystem at delete time — it does not trust the write-time check
+     * alone, in case a value ever reaches the DB some other way (e.g. a row
+     * written before validation existed).
      */
     private function safeDeleteTtdMurid(?string $relativePath): void
     {
-        if (! $relativePath || ! preg_match('/^ttd-pelanggaran\/[A-Za-z0-9_]+\.png$/', $relativePath)) {
+        if (! $relativePath || ! preg_match('/^ttd-pelanggaran\/[A-Za-z0-9_-]+\.(?:png|jpe?g)\z/', $relativePath)) {
             return;
         }
 
