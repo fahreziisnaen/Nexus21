@@ -547,6 +547,12 @@ class PelanggaranController extends Controller
         $tahunPembelajaran = $request->input('tahun_pembelajaran', $defaultTahun);
         $semesterTipe      = $request->input('semester', $defaultTipe);
 
+        // Rakit string semester ("2025/2026-1") dari filter tahun + tipe semester,
+        // formatnya sama persis dengan kolom `semester` di tabel pelanggaran.
+        // Pola ini mengikuti index() di controller yang sama.
+        $semNum         = $semesterTipe === 'Semester Ganjil' ? 1 : 2;
+        $semesterFilter = $tahunPembelajaran . '-' . $semNum;
+
         // Build the base query
         $query = Murid::where('status', 'Aktif');
 
