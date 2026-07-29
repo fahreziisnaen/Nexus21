@@ -86,10 +86,18 @@ function reportGiveUp(reason) {
  * Tentukan versi WA Web yang dipakai saat handshake.
  *
  * Meta menolak client revision yang ketinggalan dengan `<failure reason="405"
- * location="atn"/>` (client_too_old). fetchLatestBaileysVersion() hanya
- * mengembalikan versi yang DIBUNDEL bersama library, yang jadi basi begitu Meta
- * menaikkan revisi client sementara Baileys belum merilis versi baru — dan
- * tetap melaporkan `isLatest: true`, sehingga menyesatkan.
+ * location="atn"/>` (client_too_old).
+ *
+ * fetchLatestBaileysVersion() TIDAK menanyakan versi ke WhatsApp. Ia mengambil
+ * src/Defaults/index.ts dari branch master repo Baileys di GitHub, lalu
+ * meng-scrape angka versi dari baris ke-7 file itu. Jadi yang didapat adalah
+ * angka yang terakhir di-commit maintainer Baileys — bukan yang benar-benar
+ * diminta Meta. Begitu Meta menaikkan revisi client dan repo Baileys belum
+ * menyusul, semua aplikasi yang memakai fungsi ini serentak ditolak 405.
+ *
+ * Lebih menyesatkan lagi: fungsi itu meng-hardcode `isLatest: true` setiap kali
+ * parsing baris tersebut berhasil, jadi nilai itu hanya berarti "berhasil baca
+ * repo Baileys" — sama sekali bukan konfirmasi versinya masih diterima Meta.
  *
  * Karena itu ambil revisi langsung dari web.whatsapp.com/sw.js lebih dulu, dan
  * hanya jatuh ke versi bundel kalau pengambilan langsung gagal.
