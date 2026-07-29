@@ -5,6 +5,7 @@ import bodyParser from 'body-parser';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import crypto from 'crypto';
+import { classifyDisconnect, MAX_RECONNECT_ATTEMPTS } from './whatsapp-reconnect-policy.js';
 
 const app = express();
 const PORT = 3000;
@@ -38,6 +39,48 @@ function requireSharedSecret(req, res, next) {
 }
 
 let sock; // Global socket variable used by the API
+let reconnectAttempts = 0;
+
+function scheduleReconnect(delayMs) {
+    setTimeout(() => {
+        // connectToWhatsApp() is async; without this catch a failure here (mis.
+        // fetchLatestBaileysVersion gagal karena jaringan) menjadi unhandled
+        // rejection dan loop reconnect berhenti diam-diam.
+        connectToWhatsApp().catch((err) => {
+            console.error('Gagal saat mencoba menyambung ulang:', err);
+            const next = classifyDisconnect(undefined, ++reconnectAttempts);
+            if (next.action === 'retry') {
+                scheduleReconnect(next.delayMs);
+            } else {
+                reportGiveUp(next.reason);
+            }
+        });
+    }, delayMs);
+}
+
+function reportGiveUp(reason) {
+    if (reason === 'fatal') {
+        console.error(
+            '\n❌ Sesi WhatsApp ditolak permanen — berhenti mencoba menyambung.\n' +
+            '   Perangkat perlu di-pairing ulang:\n' +
+            '     1. docker compose stop whatsapp\n' +
+            '     2. hapus folder wa_auth/ di root project\n' +
+            '     3. docker compose start whatsapp\n' +
+            '     4. docker compose logs -f whatsapp  → scan QR yang muncul\n'
+        );
+        return;
+    }
+
+    console.error(
+        `\n❌ Gagal menyambung setelah ${MAX_RECONNECT_ATTEMPTS} percobaan — berhenti mencoba.\n` +
+        '   Penyebab paling umum: kredensial di wa_auth/ sudah tidak diterima\n' +
+        '   WhatsApp (mis. failure reason 405/location "atn"), atau IP server\n' +
+        '   sedang dibatasi sementara oleh WhatsApp.\n' +
+        '   Kalau menunggu beberapa saat lalu restart container tidak menolong,\n' +
+        '   lakukan pairing ulang: stop container, hapus folder wa_auth/, start\n' +
+        '   lagi, lalu scan QR dari `docker compose logs -f whatsapp`.\n'
+    );
+}
 
 async function connectToWhatsApp() {
     const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -68,23 +111,32 @@ async function connectToWhatsApp() {
         if (connection === 'close') {
             const error = lastDisconnect?.error;
             const statusCode = error?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-
-            // Handle specific error codes gracefully without scary logs
-            if (statusCode === 515 || error?.message?.includes('Stream Errored')) {
-                console.log('🔄 Stream need restart (Error 515). Reconnecting automatically...');
-            } else {
-                console.log('Connection closed due to ', error, ', reconnecting ', shouldReconnect);
-            }
 
             // Nullify sock immediately to prevent using closed socket
             sock = undefined;
-            if (shouldReconnect) {
-                // Add small delay before reconnecting
-                setTimeout(connectToWhatsApp, 2000); // Increased delay slightly
+
+            const decision = classifyDisconnect(statusCode, ++reconnectAttempts);
+
+            // Handle specific error codes gracefully without scary logs
+            if (statusCode === DisconnectReason.restartRequired || error?.message?.includes('Stream Errored')) {
+                console.log('🔄 Stream need restart (Error 515). Reconnecting automatically...');
+            } else if (decision.action === 'retry') {
+                console.log(
+                    `Connection closed (status ${statusCode ?? 'unknown'}), ` +
+                    `reconnecting in ${decision.delayMs / 1000}s ` +
+                    `(percobaan ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
+                );
+            }
+
+            if (decision.action === 'retry') {
+                scheduleReconnect(decision.delayMs);
+            } else {
+                console.log('Connection closed due to ', error);
+                reportGiveUp(decision.reason);
             }
         } else if (connection === 'open') {
             console.log('WhatsApp connection opened!');
+            reconnectAttempts = 0; // sesi sehat — reset backoff
         }
     });
 
