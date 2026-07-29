@@ -1,5 +1,5 @@
 
-import { makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
+import { makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion, fetchLatestWaWebVersion } from '@whiskeysockets/baileys';
 import express from 'express';
 import bodyParser from 'body-parser';
 import pino from 'pino';
@@ -82,9 +82,40 @@ function reportGiveUp(reason) {
     );
 }
 
+/**
+ * Tentukan versi WA Web yang dipakai saat handshake.
+ *
+ * Meta menolak client revision yang ketinggalan dengan `<failure reason="405"
+ * location="atn"/>` (client_too_old). fetchLatestBaileysVersion() hanya
+ * mengembalikan versi yang DIBUNDEL bersama library, yang jadi basi begitu Meta
+ * menaikkan revisi client sementara Baileys belum merilis versi baru — dan
+ * tetap melaporkan `isLatest: true`, sehingga menyesatkan.
+ *
+ * Karena itu ambil revisi langsung dari web.whatsapp.com/sw.js lebih dulu, dan
+ * hanya jatuh ke versi bundel kalau pengambilan langsung gagal.
+ */
+async function resolveWaWebVersion() {
+    try {
+        const live = await fetchLatestWaWebVersion();
+        if (live?.version && !live.error) {
+            return { version: live.version, source: 'web.whatsapp.com (live)' };
+        }
+        console.warn('Versi live WA Web tidak valid:', live?.error ?? 'tidak diketahui');
+    } catch (err) {
+        console.warn('Gagal mengambil versi WA Web langsung dari Meta:', err?.message ?? err);
+    }
+
+    const bundled = await fetchLatestBaileysVersion();
+    console.warn(
+        '⚠️  Memakai versi bawaan Baileys sebagai fallback. Kalau versi ini sudah\n' +
+        '   ketinggalan dari yang diminta Meta, koneksi akan ditolak dengan 405.'
+    );
+    return { version: bundled.version, source: 'bundel Baileys (fallback)' };
+}
+
 async function connectToWhatsApp() {
-    const { version, isLatest } = await fetchLatestBaileysVersion();
-    console.log(`Using WhatsApp Web v${version.join('.')}, isLatest: ${isLatest}`);
+    const { version, source } = await resolveWaWebVersion();
+    console.log(`Using WhatsApp Web v${version.join('.')} (sumber: ${source})`);
 
     // Use multi-file auth state to save credentials locally
     const { state, saveCreds } = await useMultiFileAuthState('wa_auth');
