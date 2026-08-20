@@ -87,7 +87,7 @@
                     <td>
                         <div class="pelanggaran-list">
                             @forelse ($murid->pelanggaran as $p)
-                                <span>• {{ $p->jenis_pelanggaran }} ({{ \Carbon\Carbon::parse($p->tanggal)->format('d/m/Y') }}) - {{ $p->pelapor }}</span>
+                                <span>• {{ $p->jenis_pelanggaran }} ({{ \Carbon\Carbon::parse($p->tanggal)->format('d/m/Y') }}@if($p->waktu) {{ \Carbon\Carbon::parse($p->waktu)->format('H:i') }}@endif) - {{ $p->pelapor }}</span>
                             @empty
                                 <span style="color: #9ca3af; font-style: italic;">— tidak ada —</span>
                             @endforelse

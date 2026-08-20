@@ -118,7 +118,12 @@
                     @forelse ($murid->pelanggaran as $i => $p)
                     <tr>
                         <td class="text-center">{{ $i + 1 }}</td>
-                        <td>{{ \Carbon\Carbon::parse($p->tanggal)->format('d/m/Y') }}</td>
+                        <td>
+                            {{ \Carbon\Carbon::parse($p->tanggal)->format('d/m/Y') }}
+                            @if($p->waktu)
+                                <br><span style="color: #6b7280; font-size: 8px;">{{ \Carbon\Carbon::parse($p->waktu)->format('H:i') }}</span>
+                            @endif
+                        </td>
                         <td class="font-bold">{{ $p->jenis_pelanggaran }}</td>
                         <td class="text-center"><span class="poin-badge">{{ $p->poin }}</span></td>
                         <td>{{ $p->keterangan ?? '-' }}</td>

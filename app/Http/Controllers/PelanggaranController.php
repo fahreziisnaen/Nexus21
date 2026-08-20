@@ -133,6 +133,7 @@ class PelanggaranController extends Controller
                 "exists:jenis_pelanggaran,nama",
             ],
             "tanggal" => ["required", "date"],
+            "waktu" => ["nullable", "date_format:H:i"],
             "keterangan" => ["nullable", "string", "max:1000"],
             "bukti" => ["nullable", "image", "max:2048"],
             "ttd_murid" => ["nullable", "string"],
@@ -289,6 +290,7 @@ class PelanggaranController extends Controller
                 "exists:jenis_pelanggaran,nama",
             ],
             "tanggal" => ["required", "date"],
+            "waktu" => ["nullable", "date_format:H:i"],
             "keterangan" => ["nullable", "string", "max:1000"],
             "bukti" => ["nullable", "image", "max:2048"],
             "ttd_murid" => ["nullable", "string"],
@@ -625,7 +627,8 @@ class PelanggaranController extends Controller
             $phoneNumber .= '@c.us';
 
             $tanggal = \Carbon\Carbon::parse($pelanggaran->tanggal)->format('d/m/Y');
-            $waktu = $pelanggaran->created_at ? $pelanggaran->created_at->format('H:i \W\I\B') : now()->format('H:i \W\I\B');
+            $waktu = $pelanggaran->waktu ? \Carbon\Carbon::parse($pelanggaran->waktu)->format('H:i') : '00:00';
+            $createdWaktu = $pelanggaran->created_at ? $pelanggaran->created_at->format('H:i \W\I\B') : now()->format('H:i \W\I\B');
 
             $message = "Halo Bapak/Ibu *{$walikelas->nama_lengkap}*,\n\n"
                 . "Ijin melaporkan bahwa ada pelanggaran yang dilakukan siswa/i atas nama:\n\n"

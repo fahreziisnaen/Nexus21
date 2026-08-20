@@ -20,6 +20,7 @@ class Pelanggaran extends Model
         "jenis_pelanggaran",
         "poin",
         "tanggal",
+        "waktu",
         "keterangan",
         "bukti",
         "ttd_murid",

@@ -152,6 +152,7 @@ class ReportController extends Controller
                     'pelanggaran' => $studentViolations->map(function ($r) {
                         return (object) [
                             'tanggal'           => $r->tanggal,
+                            'waktu'             => $r->waktu,
                             'jenis_pelanggaran' => $r->jenis_pelanggaran,
                             'poin'              => $r->poin,
                             'pelapor'           => $r->pencatat->nama_lengkap ?? $r->username,

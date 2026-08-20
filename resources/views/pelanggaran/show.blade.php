@@ -117,13 +117,16 @@
 
                             {{-- Date --}}
                             <div>
-                                <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Tanggal Pelanggaran</h4>
+                                <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Tanggal & Waktu Pelanggaran</h4>
                                 <div class="flex items-center gap-3 bg-gray-50 rounded-xl p-4 border border-gray-100">
                                     <svg class="w-5 h-5 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                     </svg>
                                     <span class="text-gray-900 font-semibold text-sm">
                                         {{ \Carbon\Carbon::parse($pelanggaran->tanggal)->locale('id')->isoFormat('dddd, D MMMM Y') }}
+                                        @if($pelanggaran->waktu)
+                                            <span class="text-gray-500">· Pukul {{ \Carbon\Carbon::parse($pelanggaran->waktu)->format('H:i') }}</span>
+                                        @endif
                                     </span>
                                 </div>
                             </div>

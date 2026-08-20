@@ -245,13 +245,16 @@
                                 @endif
                             </div>
 
-                            {{-- Tanggal --}}
+                            {{-- Tanggal & Waktu --}}
                             <div class="flex items-center gap-1 mb-3">
                                 <svg class="w-3.5 h-3.5 text-gray-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                 </svg>
                                 <span class="text-xs text-gray-400">
                                     {{ \Carbon\Carbon::parse($item->tanggal)->locale('id')->isoFormat('D MMM Y') }}
+                                    @if($item->waktu)
+                                        · {{ \Carbon\Carbon::parse($item->waktu)->format('H:i') }}
+                                    @endif
                                 </span>
                             </div>
 
@@ -316,7 +319,7 @@
                                 <th class="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Siswa</th>
                                 <th class="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Jenis Pelanggaran</th>
                                 <th class="px-4 py-3 text-center text-xs font-bold text-white uppercase tracking-wider">Poin</th>
-                                <th class="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Tanggal</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Tanggal & Waktu</th>
                                 <th class="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider hidden md:table-cell">Dicatat Oleh</th>
                                 <th class="px-4 py-3 text-center text-xs font-bold text-white uppercase tracking-wider">Aksi</th>
                             </tr>
@@ -380,11 +383,14 @@
                                         </span>
                                     </td>
 
-                                    {{-- Tanggal --}}
+                                    {{-- Tanggal & Waktu --}}
                                     <td class="px-4 py-3" style="vertical-align: middle;">
                                         <span class="text-sm text-gray-700 font-medium">
                                             {{ \Carbon\Carbon::parse($item->tanggal)->locale('id')->isoFormat('D MMM Y') }}
                                         </span>
+                                        @if($item->waktu)
+                                            <span class="text-xs text-gray-400 block">{{ \Carbon\Carbon::parse($item->waktu)->format('H:i') }}</span>
+                                        @endif
                                     </td>
 
                                     {{-- Dicatat Oleh --}}

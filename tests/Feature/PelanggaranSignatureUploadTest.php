@@ -116,6 +116,7 @@ test('update rejects a PHP payload disguised as ttd_murid and writes no php file
         'poin' => $jenis->poin,
         'tanggal' => now()->toDateString(),
         'semester' => '2025/2026-1',
+        'waktu' => now()->format('H:i'),
     ]);
 
     $response = $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
@@ -179,6 +180,7 @@ test('CLEAR never deletes a file outside ttd-pelanggaran even if a bad path reac
         'poin' => $jenis->poin,
         'tanggal' => now()->toDateString(),
         'semester' => '2025/2026-1',
+        'waktu' => now()->format('H:i'),
     ]);
 
     $canaryPath = storage_path('app/public_test_canary.txt');
@@ -245,6 +247,7 @@ test('update saves a genuine PNG signature with a hardcoded .png extension', fun
         'poin' => $jenis->poin,
         'tanggal' => now()->toDateString(),
         'semester' => '2025/2026-1',
+        'waktu' => now()->format('H:i'),
     ]);
 
     $response = $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [
@@ -285,6 +288,7 @@ test('CLEAR actually deletes a real stored signature file with a hyphenated time
         'poin' => $jenis->poin,
         'tanggal' => now()->toDateString(),
         'semester' => '2025/2026-1',
+        'waktu' => now()->format('H:i'),
     ]);
 
     $uploadResponse = $this->actingAs($user)->put(route('pelanggaran.update', $pelanggaran), [

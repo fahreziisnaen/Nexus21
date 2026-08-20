@@ -16,6 +16,7 @@ function makePelanggaranRecord(array $overrides = []): Pelanggaran
         'jenis_pelanggaran' => 'Terlambat',
         'poin' => 5,
         'tanggal' => now()->toDateString(),
+        'waktu' => now()->format('H:i'),
         'semester' => '2025/2026-1',
     ], $overrides));
 }

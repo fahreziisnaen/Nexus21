@@ -258,7 +258,12 @@
                         <tbody class="bg-white divide-y divide-gray-200">
                             @forelse($stats['recent_pelanggaran'] ?? [] as $item)
                                 <tr class="hover:bg-gray-50 transition-colors duration-200">
-                                    <td class="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">{{ $item->tanggal->format('d/m/Y') }}</td>
+                                    <td class="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                                        {{ $item->tanggal->format('d/m/Y') }}
+                                        @if($item->waktu)
+                                            <br><span class="text-gray-400">{{ \Carbon\Carbon::parse($item->waktu)->format('H:i') }}</span>
+                                        @endif
+                                    </td>
                                     <td class="px-2 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 min-w-0">
                                         <span class="text-xs sm:text-sm font-medium text-gray-900 break-words block" title="{{ $item->nama_murid ?? '-' }}">{{ $item->nama_murid ?? '-' }}</span>
                                     </td>

@@ -159,6 +159,15 @@
                             <x-input-error :messages="$errors->get('tanggal')" class="mt-2" />
                         </div>
 
+                        {{-- Waktu --}}
+                        <div class="mb-5">
+                            <x-input-label for="waktu" :value="__('Waktu Pelanggaran (Opsional)')" class="text-sm font-semibold text-gray-700 mb-1.5" />
+                            <x-text-input id="waktu" class="block mt-1 w-full" type="text"
+                                name="waktu" placeholder="HH:MM" value="{{ old('waktu', $pelanggaran->waktu) }}" />
+                            <p class="mt-1 text-xs text-gray-500">Format: 24 jam (contoh: 07:30). Kosongkan jika tidak tahu jam kejadian.</p>
+                            <x-input-error :messages="$errors->get('waktu')" class="mt-2" />
+                        </div>
+
                         {{-- Keterangan --}}
                         <div class="mb-5">
                             <x-input-label for="keterangan" :value="__('Keterangan (Opsional)')" class="text-sm font-semibold text-gray-700 mb-1.5" />

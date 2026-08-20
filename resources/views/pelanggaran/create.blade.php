@@ -132,6 +132,15 @@
                             <x-input-error :messages="$errors->get('tanggal')" class="mt-2" />
                         </div>
 
+                        {{-- Waktu --}}
+                        <div class="mb-8">
+                            <x-input-label for="waktu" :value="__('Waktu Pelanggaran (Opsional)')" class="text-sm font-semibold text-gray-700 mb-1.5" />
+                            <x-text-input id="waktu" class="block mt-1 w-full" type="text"
+                                name="waktu" placeholder="HH:MM" value="{{ old('waktu') }}" />
+                            <p class="mt-1 text-xs text-gray-500">Format: 24 jam (contoh: 07:30). Kosongkan jika tidak tahu jam kejadian.</p>
+                            <x-input-error :messages="$errors->get('waktu')" class="mt-2" />
+                        </div>
+
                         {{-- Keterangan --}}
                         <div class="mb-8">
                             <x-input-label for="keterangan" :value="__('Keterangan (Opsional)')" class="text-sm font-semibold text-gray-700 mb-1.5" />
@@ -403,6 +412,16 @@
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const day   = String(now.getDate()).padStart(2, '0');
             tanggalHidden.value = `${year}-${month}-${day}`;
+        })();
+        @endif
+
+        // Set default time to current time if no old value
+        @if(!old('waktu'))
+        (function () {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('waktu').value = `${hours}:${minutes}`;
         })();
         @endif
 
