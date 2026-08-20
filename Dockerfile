@@ -35,11 +35,9 @@ RUN install-php-extensions \
     fileinfo \
     opcache
 
-# ── Node.js 20 (via NodeSource) ───────────────────────────────────────────────
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# ── Node.js 20 (Official Binary - include npm automatically) ───────────────────
+RUN curl -fsSL https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-x64.tar.gz \
+    | tar -xz -C /usr/local --strip-components=1
 
 # ── Composer ──────────────────────────────────────────────────────────────────
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
