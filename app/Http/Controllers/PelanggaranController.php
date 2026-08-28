@@ -510,21 +510,19 @@ class PelanggaranController extends Controller
                 }
             }
 
-            $semesterAktif     = SemesterHelper::current();
-            $totalPoin         = Pelanggaran::where('NIS', $nis)->sum('poin');
-            $totalPoinSemester = Pelanggaran::where('NIS', $nis)
+            $semesterAktif = SemesterHelper::current();
+            $totalPoin     = Pelanggaran::where('NIS', $nis)
                 ->where('semester', $semesterAktif)
                 ->sum('poin');
 
             return response()->json([
-                'success'             => true,
-                'gender'              => $murid->gender,
-                'kelas'               => $murid->kelas,
-                'nama_lengkap'        => $murid->nama_lengkap,
-                'total_poin'          => $totalPoin,
-                'total_poin_semester' => $totalPoinSemester,
-                'semester_aktif'      => $semesterAktif,
-                'semester_label'      => SemesterHelper::label($semesterAktif),
+                'success'        => true,
+                'gender'        => $murid->gender,
+                'kelas'         => $murid->kelas,
+                'nama_lengkap'  => $murid->nama_lengkap,
+                'total_poin'    => $totalPoin,
+                'semester_aktif'=> $semesterAktif,
+                'semester_label'=> SemesterHelper::label($semesterAktif),
             ]);
         }
 
