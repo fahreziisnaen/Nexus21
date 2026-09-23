@@ -125,7 +125,7 @@
             </form>
         </div>
 
-        <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+        @vite(['resources/js/qrcode.js'])
         <script>
             (function () {
                 var uri = @json($totp->provisioningUri($pendingSecret, $user->username, $totp->issuer()));
@@ -137,9 +137,9 @@
                     if (fallback) fallback.classList.remove('hidden');
                 }
 
-                // Library QR dimuat dari CDN. Kalau CDN tidak bisa diakses (offline atau
-                // diblokir jaringan sekolah), user tetap bisa mendaftar memakai kunci
-                // manual yang ditampilkan di sebelah QR.
+                // Library QR di-bundle lokal lewat Vite, jadi tidak butuh internet.
+                // Fallback kunci manual tetap dipertahankan untuk jaga-jaga kalau
+                // asset gagal dimuat (mis. build frontend belum diperbarui).
                 if (typeof QRCode === 'undefined' || !canvas) {
                     tampilkanFallback();
                     return;
