@@ -66,6 +66,16 @@ class OtpController extends Controller
             return redirect()->route('login')->with('error', 'Pengguna tidak ditemukan.');
         }
 
+        // Kalau user mengaktifkan 2FA setelah OTP ini dikirim, jalur WhatsApp harus
+        // ditolak di sini juga — bukan cuma tidak ditawarkan di halaman login. Tanpa
+        // pengecekan ini, OTP lama yang masih ada di session bisa dipakai untuk
+        // melewati authenticator.
+        if ($user->hasTwoFactorEnabled()) {
+            $request->session()->forget(['auth_otp', 'auth_username', 'auth_remember', 'auth_otp_expires_at', 'auth_otp_attempts']);
+
+            return redirect()->route('login')->with('error', 'Akun Anda memakai aplikasi authenticator. Silakan login kembali dan masukkan kode dari authenticator.');
+        }
+
         Auth::login($user, $remember);
 
         $request->session()->regenerate();

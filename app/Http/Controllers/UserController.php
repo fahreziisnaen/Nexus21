@@ -333,4 +333,43 @@ class UserController extends Controller
 
         return redirect()->route('users.index')->with('success', 'User berhasil dihapus.');
     }
+    /**
+     * Reset (matikan paksa) 2FA milik user lain.
+     *
+     * Dipakai kalau user kehilangan HP-nya dan kehabisan recovery code, sehingga
+     * tidak ada lagi cara untuk melewati tahap kedua. Setelah direset, user kembali
+     * memakai OTP WhatsApp dan bisa mendaftarkan perangkat baru dari halaman Profile.
+     */
+    public function resetTwoFactor(User $user)
+    {
+        $redirect = $this->checkWalikelasAccess();
+        if ($redirect) {
+            return $redirect;
+        }
+
+        $currentUser = auth()->user();
+
+        // Batasan sama seperti edit(): TATIB tidak boleh menyentuh Admin maupun
+        // sesama TATIB, karena mematikan 2FA menurunkan keamanan akun tersebut.
+        if ($currentUser->role === 'TATIB') {
+            if ($user->role === 'Admin') {
+                return redirect()->route('users.index')->with('error', 'Anda tidak memiliki izin untuk mereset 2FA user dengan role Admin.');
+            }
+
+            if ($user->role === 'TATIB' && $user->username !== $currentUser->username) {
+                return redirect()->route('users.index')->with('error', 'Anda tidak memiliki izin untuk mereset 2FA user dengan role TATIB.');
+            }
+        }
+
+        if (! $user->hasTwoFactorEnabled()) {
+            return redirect()->route('users.edit', $user)->with('error', 'User ini tidak mengaktifkan autentikasi dua faktor.');
+        }
+
+        $user->disableTwoFactor();
+
+        \Illuminate\Support\Facades\Log::warning("2FA user {$user->username} direset oleh {$currentUser->username}");
+
+        return redirect()->route('users.edit', $user)
+            ->with('success', "Autentikasi dua faktor untuk {$user->nama_lengkap} berhasil direset. User tersebut kembali login memakai OTP WhatsApp.");
+    }
 }

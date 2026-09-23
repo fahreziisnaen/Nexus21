@@ -19,6 +19,9 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- Kunci khusus test: suite harus bisa jalan tanpa file .env,
+             dan cast "encrypted" (mis. secret 2FA) butuh APP_KEY. -->
+        <env name="APP_KEY" value="base64:BxRFlaiyFRBhpU/ZF84UsF8RaGQw9afVYcNvERoZGzs="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>

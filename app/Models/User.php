@@ -39,6 +39,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -50,6 +52,11 @@ class User extends Authenticatable
     {
         return [
             'password' => 'hashed',
+            // Secret & recovery code adalah kredensial: disimpan terenkripsi di DB
+            // supaya dump database saja tidak cukup untuk membuat kode TOTP yang valid.
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
         ];
     }
 
@@ -81,6 +88,60 @@ class User extends Authenticatable
     public function getAuthPassword()
     {
         return $this->password;
+    }
+
+    /**
+     * Apakah user ini memakai authenticator (TOTP) sebagai metode verifikasi login.
+     *
+     * Secret yang sudah dibuat tapi belum dikonfirmasi tidak dihitung aktif, supaya
+     * user yang gagal menyelesaikan proses scan QR tetap bisa login lewat OTP WhatsApp.
+     */
+    public function hasTwoFactorEnabled(): bool
+    {
+        return ! is_null($this->two_factor_secret) && ! is_null($this->two_factor_confirmed_at);
+    }
+
+    /**
+     * Matikan 2FA dan bersihkan seluruh state-nya (kembali ke OTP WhatsApp).
+     */
+    public function disableTwoFactor(): void
+    {
+        $this->forceFill([
+            'two_factor_secret' => null,
+            'two_factor_recovery_codes' => null,
+            'two_factor_confirmed_at' => null,
+            'two_factor_last_timestep' => null,
+        ])->save();
+    }
+
+    /**
+     * Pakai satu recovery code (sekali pakai — langsung dicoret dari daftar).
+     * Mengembalikan false kalau kode tidak ada di daftar.
+     */
+    public function consumeRecoveryCode(string $code): bool
+    {
+        $codes = $this->two_factor_recovery_codes ?? [];
+        $normalized = strtoupper(trim($code));
+
+        $matched = null;
+        foreach ($codes as $stored) {
+            if (hash_equals(strtoupper($stored), $normalized)) {
+                $matched = $stored;
+            }
+        }
+
+        if ($matched === null) {
+            return false;
+        }
+
+        $this->forceFill([
+            'two_factor_recovery_codes' => array_values(array_filter(
+                $codes,
+                fn ($stored) => $stored !== $matched
+            )),
+        ])->save();
+
+        return true;
     }
 
     /**

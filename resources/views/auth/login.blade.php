@@ -12,24 +12,34 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
     @php
+        // Sisa waktu verifikasi, dipakai bersama oleh modal OTP WhatsApp dan modal
+        // authenticator — keduanya sama-sama berlaku 5 menit.
         $timeLeft = 0;
+        $expiresAt = null;
+
         if (session('show_otp')) {
             $expiresAt = session('auth_otp_expires_at');
+        } elseif (session('show_2fa')) {
+            $expiresAt = session('auth_2fa_expires_at');
+        }
+
+        if (session('show_otp') || session('show_2fa')) {
             if ($expiresAt) {
-                // Parse and get diff in seconds
                 $parsedExpiresAt = \Carbon\Carbon::parse($expiresAt);
                 if ($parsedExpiresAt->isFuture()) {
                     $timeLeft = $parsedExpiresAt->diffInSeconds(now(), true); // absolute difference
                 }
             } else {
-                // Default to 5 minutes if it just got generated but session string failed
-                $timeLeft = 300; 
+                // Default 5 menit kalau nilai session gagal dibaca.
+                $timeLeft = 300;
             }
         }
     @endphp
 <body class="bg-gradient-to-br from-indigo-500 to-purple-500 min-h-screen flex items-center justify-center p-4" 
       x-data="{ 
           showOtpModal: {{ session('show_otp') ? 'true' : 'false' }},
+          show2faModal: {{ session('show_2fa') ? 'true' : 'false' }},
+          showRecoveryInput: false,
           timeLeft: {{ floor($timeLeft) }},
           timerInterval: null,
           startTimer() {
@@ -39,7 +49,9 @@
                       this.timeLeft--;
                   } else {
                       clearInterval(this.timerInterval);
-                      this.showOtpModal = false; // Auto close when expired
+                      // Tutup modal apa pun yang sedang terbuka saat waktu habis.
+                      this.showOtpModal = false;
+                      this.show2faModal = false;
                   }
               }, 1000);
           },
@@ -49,7 +61,7 @@
               return m + ':' + (s < 10 ? '0' : '') + s;
           }
       }"
-      x-init="if (showOtpModal && timeLeft > 0) startTimer(); $watch('showOtpModal', value => { if (value && timeLeft > 0) startTimer() })">
+      x-init="if ((showOtpModal || show2faModal) && timeLeft > 0) startTimer(); $watch('showOtpModal', value => { if (value && timeLeft > 0) startTimer() }); $watch('show2faModal', value => { if (value && timeLeft > 0) startTimer() })">
     <div class="w-full max-w-md">
         <!-- Logo/Header -->
         <div class="text-center mb-8">
@@ -212,6 +224,115 @@
                             Verifikasi
                         </button>
                         <button type="button" @click="showOtpModal = false"
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                            Batal
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2FA / Authenticator Modal -->
+    <div x-show="show2faModal"
+         class="fixed inset-0 z-50 overflow-y-auto"
+         aria-labelledby="modal-title-2fa"
+         role="dialog"
+         aria-modal="true"
+         style="display: none;">
+
+        <div class="flex items-center justify-center min-h-screen px-4 text-center">
+            <!-- Background overlay -->
+            <div x-show="show2faModal"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+                 aria-hidden="true"></div>
+
+            <!-- Modal panel -->
+            <div x-show="show2faModal"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 class="inline-block bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:max-w-md w-full p-8">
+
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-indigo-100 mb-3">
+                        <svg class="w-7 h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2" id="modal-title-2fa">Verifikasi Dua Faktor</h3>
+                    <p class="text-sm text-gray-500" x-show="! showRecoveryInput">Masukkan kode 6 digit dari aplikasi authenticator Anda.</p>
+                    <p class="text-sm text-gray-500" x-show="showRecoveryInput" x-cloak>Masukkan salah satu recovery code yang Anda simpan saat mengaktifkan 2FA.</p>
+                    <div class="text-sm font-semibold mt-2" :class="timeLeft > 60 ? 'text-indigo-600' : 'text-red-500'">
+                        <template x-if="timeLeft > 0">
+                            <span>Sisa waktu: <span x-text="formattedTime"></span></span>
+                        </template>
+                        <template x-if="timeLeft <= 0">
+                            <span class="text-red-500">Waktu verifikasi telah habis.</span>
+                        </template>
+                    </div>
+                </div>
+
+                <form method="POST" action="{{ route('two-factor.challenge') }}" class="space-y-6">
+                    @csrf
+
+                    <div x-show="! showRecoveryInput">
+                        <label for="code" class="block text-sm font-semibold text-gray-700 mb-2">Kode Authenticator (6 digit)</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <input id="code" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+                                :required="! showRecoveryInput" :disabled="showRecoveryInput"
+                                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200 tracking-widest text-center text-lg font-bold"
+                                placeholder="000000">
+                        </div>
+                    </div>
+
+                    <div x-show="showRecoveryInput" x-cloak>
+                        <label for="recovery_code" class="block text-sm font-semibold text-gray-700 mb-2">Recovery Code</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                                </svg>
+                            </div>
+                            <input id="recovery_code" type="text" name="recovery_code" autocomplete="off"
+                                :required="showRecoveryInput" :disabled="! showRecoveryInput"
+                                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200 tracking-wider text-center font-mono uppercase"
+                                placeholder="XXXXX-XXXXX">
+                        </div>
+                    </div>
+
+                    @if (session('error'))
+                        <p class="text-sm text-red-600 text-center">{{ session('error') }}</p>
+                    @endif
+
+                    <div class="text-center">
+                        <button type="button" @click="showRecoveryInput = ! showRecoveryInput"
+                            class="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+                            <span x-show="! showRecoveryInput">Kehilangan akses ke authenticator? Pakai recovery code</span>
+                            <span x-show="showRecoveryInput" x-cloak>Kembali memakai kode authenticator</span>
+                        </button>
+                    </div>
+
+                    <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                        <button type="submit"
+                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm">
+                            Verifikasi
+                        </button>
+                        <button type="button" @click="show2faModal = false"
                             class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
                             Batal
                         </button>

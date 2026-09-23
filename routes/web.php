@@ -8,6 +8,7 @@ use App\Http\Controllers\PelanggaranController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\Auth\TwoFactorAuthenticationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get("/", function () {
@@ -144,7 +145,23 @@ Route::middleware("auth")->group(function () {
     );
     // Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy'); // Dinonaktifkan
 
+    // Autentikasi Dua Faktor (Google Authenticator / TOTP)
+    Route::post('/profile/two-factor/enable', [TwoFactorAuthenticationController::class, 'enable'])
+        ->name('two-factor.enable');
+    Route::post('/profile/two-factor/confirm', [TwoFactorAuthenticationController::class, 'confirm'])
+        ->name('two-factor.confirm');
+    Route::post('/profile/two-factor/cancel', [TwoFactorAuthenticationController::class, 'cancel'])
+        ->name('two-factor.cancel');
+    Route::delete('/profile/two-factor', [TwoFactorAuthenticationController::class, 'disable'])
+        ->name('two-factor.disable');
+    Route::post('/profile/two-factor/recovery-codes', [TwoFactorAuthenticationController::class, 'regenerateRecoveryCodes'])
+        ->name('two-factor.recovery-codes');
+
     // User Management
+    // Reset 2FA user lain (HP hilang / kehabisan recovery code). Didaftarkan sebelum
+    // resource route supaya urutannya jelas; path-nya sendiri tidak bentrok.
+    Route::post("/users/{user}/two-factor/reset", [UserController::class, "resetTwoFactor"])
+        ->name("users.two-factor.reset");
     Route::resource("users", UserController::class);
 
     // Data Kelas

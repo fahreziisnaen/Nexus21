@@ -30,6 +30,11 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:5,1')
         ->name('verify-otp.store');
 
+    // Tahap kedua untuk user yang memakai aplikasi authenticator (TOTP).
+    Route::post('two-factor-challenge', [\App\Http\Controllers\Auth\TwoFactorChallengeController::class, 'store'])
+        ->middleware('throttle:5,1')
+        ->name('two-factor.challenge');
+
     // Redirect untuk route yang dinonaktifkan
     Route::get('register', function () {
         return redirect()->route('login')->with('error', 'Registrasi tidak tersedia.');

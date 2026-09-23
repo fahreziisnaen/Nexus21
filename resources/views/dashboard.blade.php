@@ -37,6 +37,15 @@
                 </div>
             @endif
 
+            @if (session('warning'))
+                <div class="bg-amber-50 border-l-4 border-amber-500 text-amber-800 px-3 sm:px-6 py-3 sm:py-4 rounded-lg shadow-md mb-4 sm:mb-6 flex items-center text-sm" role="alert">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <span class="font-medium">{{ session('warning') }}</span>
+                </div>
+            @endif
+
             <!-- Welcome Card -->
             <div class="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl sm:rounded-2xl shadow-xl p-3 sm:p-6 md:p-8 mb-4 sm:mb-6 md:mb-8 text-white">
                 <div class="flex items-center justify-between">
