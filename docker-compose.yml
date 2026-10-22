@@ -67,7 +67,7 @@ services:
   # WhatsApp Server (Node.js / Baileys)
   # ─────────────────────────────────────────
   whatsapp:
-    image: node:20-alpine
+    image: node:24-alpine
     container_name: nexus_whatsapp
     restart: unless-stopped
     working_dir: /app

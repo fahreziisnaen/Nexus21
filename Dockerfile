@@ -1,4 +1,4 @@
-FROM php:8.2-fpm
+FROM php:8.2.35-fpm
 
 # ── PHP Extension Installer (handles deps automatically) ──────────────────────
 ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions \

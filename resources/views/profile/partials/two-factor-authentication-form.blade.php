@@ -86,7 +86,10 @@
                         <p class="font-semibold text-gray-900">Scan QR code di bawah</p>
                         <div class="mt-3 flex flex-col sm:flex-row sm:items-start gap-4">
                             <div class="shrink-0 bg-white p-3 rounded-lg border border-gray-200 shadow-sm self-center sm:self-start">
-                                <canvas id="two-factor-qr" class="block" width="200" height="200"></canvas>
+                                <canvas id="two-factor-qr" class="block" width="200" height="200"
+                                    data-qr-uri="{{ $totp->provisioningUri($pendingSecret, $user->username, $totp->issuer()) }}"
+                                    data-qr-fallback="two-factor-qr-fallback"
+                                    data-qr-size="200"></canvas>
                                 <p id="two-factor-qr-fallback" class="hidden text-xs text-red-600 max-w-[200px] text-center">
                                     QR code gagal dimuat. Silakan masukkan kunci di samping secara manual.
                                 </p>
@@ -126,30 +129,6 @@
         </div>
 
         @vite(['resources/js/qrcode.js'])
-        <script>
-            (function () {
-                var uri = @json($totp->provisioningUri($pendingSecret, $user->username, $totp->issuer()));
-                var canvas = document.getElementById('two-factor-qr');
-                var fallback = document.getElementById('two-factor-qr-fallback');
-
-                function tampilkanFallback() {
-                    if (canvas) canvas.classList.add('hidden');
-                    if (fallback) fallback.classList.remove('hidden');
-                }
-
-                // Library QR di-bundle lokal lewat Vite, jadi tidak butuh internet.
-                // Fallback kunci manual tetap dipertahankan untuk jaga-jaga kalau
-                // asset gagal dimuat (mis. build frontend belum diperbarui).
-                if (typeof QRCode === 'undefined' || !canvas) {
-                    tampilkanFallback();
-                    return;
-                }
-
-                QRCode.toCanvas(canvas, uri, { width: 200, margin: 1 }, function (error) {
-                    if (error) tampilkanFallback();
-                });
-            })();
-        </script>
     @endif
 
     {{-- Tombol aktivasi (hanya saat 2FA belum aktif dan tidak sedang setup) --}}
