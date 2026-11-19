@@ -66,66 +66,144 @@
         </div>
     @endif
 
-    {{-- Mode setup: scan QR lalu konfirmasi dengan satu kode --}}
+    {{-- Mode setup: Modal Penyiapan 2FA --}}
     @if ($setupMode)
-        <div class="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 sm:p-5">
-            <h4 class="text-sm font-bold text-gray-900 mb-3">Aktifkan Autentikasi Dua Faktor</h4>
+        <div x-data="{ showSetupModal: true }"
+             x-show="showSetupModal"
+             x-cloak
+             x-init="$watch('showSetupModal', val => { if (val && window.renderQrCodes) setTimeout(window.renderQrCodes, 60); })"
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-900/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
+             @keydown.escape.window="document.getElementById('cancel-setup-form').submit()">
 
-            <ol class="space-y-4 text-sm text-gray-700">
-                <li class="flex gap-3">
-                    <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span>
-                    <div>
-                        <p class="font-semibold text-gray-900">Pasang aplikasi authenticator</p>
-                        <p class="text-gray-600 mt-0.5">Misalnya Google Authenticator, Microsoft Authenticator, atau Authy &mdash; tersedia gratis di Play Store dan App Store.</p>
-                    </div>
-                </li>
+            <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full my-8 overflow-hidden transform transition-all"
+                 @click.away="document.getElementById('cancel-setup-form').submit()"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
 
-                <li class="flex gap-3">
-                    <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span>
-                    <div class="min-w-0 flex-1">
-                        <p class="font-semibold text-gray-900">Scan QR code di bawah</p>
-                        <div class="mt-3 flex flex-col sm:flex-row sm:items-start gap-4">
-                            <div class="shrink-0 bg-white p-3 rounded-lg border border-gray-200 shadow-sm self-center sm:self-start">
-                                <canvas id="two-factor-qr" class="block" width="200" height="200"
-                                    data-qr-uri="{{ $totp->provisioningUri($pendingSecret, $user->username, $totp->issuer()) }}"
-                                    data-qr-fallback="two-factor-qr-fallback"
-                                    data-qr-size="200"></canvas>
-                                <p id="two-factor-qr-fallback" class="hidden text-xs text-red-600 max-w-[200px] text-center">
-                                    QR code gagal dimuat. Silakan masukkan kunci di samping secara manual.
-                                </p>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-gray-600">Tidak bisa scan? Pilih <span class="font-semibold">&quot;Masukkan kunci penyiapan&quot;</span> di aplikasi, lalu ketik kunci ini:</p>
-                                <div class="mt-2 bg-white border border-gray-300 rounded-lg px-3 py-2 font-mono text-sm tracking-wider break-all text-gray-800">{{ $totp->formatSecretForDisplay($pendingSecret) }}</div>
-                                <p class="text-xs text-gray-500 mt-1.5">Jenis kunci: <span class="font-semibold">Berbasis waktu (time-based)</span></p>
-                            </div>
+                {{-- Modal Header --}}
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 flex items-center justify-between text-white">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-md">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base sm:text-lg font-bold">Aktifkan Autentikasi Dua Faktor</h3>
+                            <p class="text-xs text-indigo-100">Setup aplikasi authenticator untuk akun Anda</p>
                         </div>
                     </div>
-                </li>
+                    <form method="POST" action="{{ route('two-factor.cancel') }}">
+                        @csrf
+                        <button type="submit" class="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="Batal">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
 
-                <li class="flex gap-3">
-                    <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span>
-                    <div class="min-w-0 flex-1">
-                        <p class="font-semibold text-gray-900">Masukkan kode 6 digit yang muncul di aplikasi</p>
-                        <form method="POST" action="{{ route('two-factor.confirm') }}" class="mt-3 flex flex-col sm:flex-row gap-2">
-                            @csrf
-                            <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required
-                                placeholder="000000"
-                                class="w-full sm:w-40 text-center tracking-[0.3em] font-bold text-lg border-gray-300 rounded-lg shadow-sm focus:border-indigo-400 focus:ring-indigo-400">
-                            <button type="submit"
-                                class="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-lg shadow transition-all">
-                                Aktifkan
-                            </button>
-                        </form>
-                        <x-input-error :messages="$errors->get('code')" class="mt-2" />
-                    </div>
-                </li>
-            </ol>
+                {{-- Modal Body --}}
+                <div class="p-5 sm:p-6 space-y-5 max-h-[calc(100vh-12rem)] overflow-y-auto">
+                    @if (session('error') || $errors->get('code'))
+                        <div class="rounded-xl border border-red-200 bg-red-50 p-3.5 flex items-start gap-2.5 text-red-800 text-sm">
+                            <svg class="w-5 h-5 text-red-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <div>
+                                <p class="font-semibold text-red-900">{{ session('error') ?? $errors->first('code') }}</p>
+                            </div>
+                        </div>
+                    @endif
 
-            <form method="POST" action="{{ route('two-factor.cancel') }}" class="mt-4 pt-4 border-t border-indigo-200">
-                @csrf
-                <button type="submit" class="text-sm text-gray-500 hover:text-gray-700 font-medium">Batalkan penyiapan</button>
-            </form>
+                    <ol class="space-y-4 text-sm text-gray-700">
+                        {{-- Langkah 1 --}}
+                        <li class="flex gap-3">
+                            <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                            <div>
+                                <p class="font-semibold text-gray-900">Pasang aplikasi authenticator</p>
+                                <p class="text-gray-600 text-xs mt-0.5">Misalnya <strong>Google Authenticator</strong>, <strong>Microsoft Authenticator</strong>, atau <strong>Authy</strong> di Play Store / App Store.</p>
+                            </div>
+                        </li>
+
+                        {{-- Langkah 2 --}}
+                        <li class="flex gap-3">
+                            <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-semibold text-gray-900">Scan QR code di bawah</p>
+                                <div class="mt-3 flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                                    <div class="shrink-0 bg-white p-3 rounded-xl border border-gray-200 shadow-sm self-center sm:self-start flex flex-col items-center">
+                                        <canvas id="two-factor-qr" class="block rounded" width="200" height="200"
+                                            data-qr-uri="{{ $totp->provisioningUri($pendingSecret, $user->username, $totp->issuer()) }}"
+                                            data-qr-fallback="two-factor-qr-fallback"
+                                            data-qr-size="200"></canvas>
+                                        <p id="two-factor-qr-fallback" class="hidden text-xs text-red-600 max-w-[200px] text-center mt-2">
+                                            QR code gagal dimuat. Silakan masukkan kunci di samping secara manual.
+                                        </p>
+                                    </div>
+                                    <div class="min-w-0 flex-1 w-full">
+                                        <p class="text-xs text-gray-600">Tidak bisa scan? Pilih <strong>&quot;Masukkan kunci penyiapan&quot;</strong> di aplikasi Anda, lalu ketik/salin kunci ini:</p>
+                                        <div class="mt-2 bg-gray-50 border border-gray-300 rounded-lg p-2.5">
+                                            <div class="font-mono text-sm tracking-wider font-semibold text-gray-800 break-all select-all">{{ $totp->formatSecretForDisplay($pendingSecret) }}</div>
+                                            <div class="mt-2 pt-2 border-t border-gray-200 flex items-center justify-between">
+                                                <button type="button" onclick="salinSecretKey('{{ $pendingSecret }}', this)"
+                                                    class="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-gray-300 hover:bg-gray-100 rounded-md text-xs font-semibold text-gray-700 shadow-sm transition-colors">
+                                                    <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                                    </svg>
+                                                    <span>Salin Kunci</span>
+                                                </button>
+                                                <span class="text-[11px] text-gray-500">Berbasis waktu (TOTP)</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
+
+                        {{-- Langkah 3 --}}
+                        <li class="flex gap-3">
+                            <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-semibold text-gray-900">Masukkan kode 6 digit dari aplikasi</p>
+                                <form method="POST" action="{{ route('two-factor.confirm') }}" class="mt-3">
+                                    @csrf
+                                    <div class="flex flex-col sm:flex-row gap-2.5">
+                                        <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required autofocus
+                                            placeholder="000000"
+                                            class="w-full sm:w-44 text-center tracking-[0.35em] font-mono font-bold text-xl border-gray-300 rounded-xl shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5">
+                                        <button type="submit"
+                                            class="inline-flex items-center justify-center px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg transition-all">
+                                            Konfirmasi & Aktifkan
+                                        </button>
+                                    </div>
+                                </form>
+                                <x-input-error :messages="$errors->get('code')" class="mt-2" />
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+
+                {{-- Modal Footer --}}
+                <div class="bg-gray-50 px-6 py-3.5 border-t border-gray-200 flex justify-end gap-2">
+                    <form id="cancel-setup-form" method="POST" action="{{ route('two-factor.cancel') }}">
+                        @csrf
+                        <button type="submit" class="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors">
+                            Batalkan Penyiapan
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
 
         @vite(['resources/js/qrcode.js'])
@@ -209,33 +287,59 @@
         </div>
     @endif
 
-    @if ($recoveryCodes)
-        <script>
-            function salinRecoveryCodes(btn) {
-                var kode = Array.from(document.querySelectorAll('#recovery-codes-list > div'))
-                    .map(function (el) { return el.textContent.trim(); })
-                    .join('\n');
+    {{-- Helper Scripts --}}
+    <script>
+        function salinSecretKey(secret, btn) {
+            if (!secret) return;
+            const span = btn.querySelector('span');
+            const oriText = span ? span.textContent : 'Salin Kunci';
 
-                var selesai = function () {
-                    var teksAsli = btn.innerHTML;
-                    btn.textContent = 'Tersalin!';
-                    setTimeout(function () { btn.innerHTML = teksAsli; }, 2000);
-                };
+            const done = () => {
+                if (span) span.textContent = 'Tersalin!';
+                btn.classList.add('bg-green-50', 'text-green-700', 'border-green-300');
+                setTimeout(() => {
+                    if (span) span.textContent = oriText;
+                    btn.classList.remove('bg-green-50', 'text-green-700', 'border-green-300');
+                }, 2000);
+            };
 
-                if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(kode).then(selesai);
-                } else {
-                    // Fallback untuk koneksi non-HTTPS, di mana Clipboard API tidak tersedia.
-                    var ta = document.createElement('textarea');
-                    ta.value = kode;
-                    ta.style.position = 'fixed';
-                    ta.style.opacity = '0';
-                    document.body.appendChild(ta);
-                    ta.select();
-                    try { document.execCommand('copy'); selesai(); } catch (e) {}
-                    document.body.removeChild(ta);
-                }
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(secret).then(done);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = secret;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); done(); } catch (e) {}
+                document.body.removeChild(ta);
             }
-        </script>
-    @endif
+        }
+
+        function salinRecoveryCodes(btn) {
+            const kode = Array.from(document.querySelectorAll('#recovery-codes-list > div'))
+                .map(el => el.textContent.trim())
+                .join('\n');
+
+            const selesai = () => {
+                const teksAsli = btn.innerHTML;
+                btn.textContent = 'Tersalin!';
+                setTimeout(() => { btn.innerHTML = teksAsli; }, 2000);
+            };
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(kode).then(selesai);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = kode;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); selesai(); } catch (e) {}
+                document.body.removeChild(ta);
+            }
+        }
+    </script>
 </section>

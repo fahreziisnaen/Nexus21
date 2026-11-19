@@ -29,7 +29,6 @@ function renderQrCodes() {
 
         if (!uri) {
             showFallback();
-
             return;
         }
 
@@ -37,16 +36,27 @@ function renderQrCodes() {
 
         QRCode.toCanvas(canvas, uri, { width: size, margin: 1 }, (error) => {
             if (error) {
+                console.error('QR canvas rendering error:', error);
                 showFallback();
+            } else {
+                canvas.classList.remove('hidden');
+                if (fallback) {
+                    fallback.classList.add('hidden');
+                }
             }
         });
     });
 }
 
-// Modul ini deferred, jadi DOM umumnya sudah siap saat baris ini dieksekusi.
-// Pengecekan readyState tetap ada supaya aman kalau kelak dimuat dengan cara lain.
+// Buka akses global agar modal / Alpine bisa memicu render ulang saat modal dibuka
+window.renderQrCodes = renderQrCodes;
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', renderQrCodes);
 } else {
     renderQrCodes();
 }
+
+// Ulangi panggilan render sedikit kemudian untuk mengakomodasi transisi / animasi modal
+setTimeout(renderQrCodes, 60);
+setTimeout(renderQrCodes, 250);

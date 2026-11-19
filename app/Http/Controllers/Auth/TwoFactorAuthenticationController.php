@@ -29,16 +29,33 @@ class TwoFactorAuthenticationController extends Controller
      * Secret sengaja belum disimpan ke DB supaya baris user tidak pernah punya secret
      * setengah jadi — 2FA baru "ada" setelah dikonfirmasi di confirm().
      */
-    public function enable(Request $request): RedirectResponse
+    public function enable(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $user = $request->user();
 
         if ($user->hasTwoFactorEnabled()) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Autentikasi dua faktor sudah aktif. Nonaktifkan dulu jika ingin mendaftarkan perangkat baru.',
+                ], 400);
+            }
+
             return redirect()->route('profile.edit')
                 ->with('error', 'Autentikasi dua faktor sudah aktif. Nonaktifkan dulu jika ingin mendaftarkan perangkat baru.');
         }
 
-        $request->session()->put(self::PENDING_SECRET, $this->totp->generateSecret());
+        $secret = $this->totp->generateSecret();
+        $request->session()->put(self::PENDING_SECRET, $secret);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'secret' => $secret,
+                'secret_formatted' => $this->totp->formatSecretForDisplay($secret),
+                'qr_uri' => $this->totp->provisioningUri($secret, $user->username, $this->totp->issuer()),
+            ]);
+        }
 
         return redirect()->route('profile.edit')->with('two_factor_setup', true);
     }
