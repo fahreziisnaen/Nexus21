@@ -288,6 +288,24 @@ class TwoFactorAuthenticationTest extends TestCase
         $this->assertNull($user->fresh()->two_factor_secret);
     }
 
+    public function test_cancelling_setup_clears_pending_secret_and_flashes_cancelled_status(): void
+    {
+        $user = User::factory()->create(['username' => 'testuser']);
+        $secret = $this->totp->generateSecret();
+
+        $response = $this->actingAs($user)
+            ->withSession([
+                'two_factor_pending_secret' => $secret,
+                'two_factor_setup' => true,
+            ])
+            ->post(route('two-factor.cancel'));
+
+        $response->assertRedirect(route('profile.edit'));
+        $response->assertSessionMissing('two_factor_pending_secret');
+        $response->assertSessionHas('cancelled', 'Pendaftaran autentikasi dua faktor dibatalkan.');
+        $response->assertSessionMissing('success');
+    }
+
     public function test_confirming_with_a_valid_code_activates_two_factor_and_returns_recovery_codes(): void
     {
         $user = User::factory()->create(['username' => 'testuser']);

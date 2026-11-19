@@ -78,4 +78,18 @@ class TwoFactorSetupPageTest extends TestCase
         $this->assertStringNotContainsString('data-qr-uri', $html);
         $this->assertStringNotContainsString('qrcode', strtolower($html));
     }
+
+    public function test_cancellation_modal_renders_with_cancelled_title_and_not_success(): void
+    {
+        $user = User::factory()->create(['username' => 'testuser']);
+
+        $response = $this->actingAs($user)
+            ->withSession(['cancelled' => 'Pendaftaran autentikasi dua faktor dibatalkan.'])
+            ->get(route('profile.edit'))
+            ->assertOk();
+
+        $response->assertSee('Dibatalkan');
+        $response->assertSee('Pendaftaran autentikasi dua faktor dibatalkan.');
+        $response->assertDontSee('showSuccessModal: true');
+    }
 }

@@ -176,32 +176,38 @@
                             <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span>
                             <div class="min-w-0 flex-1">
                                 <p class="font-semibold text-gray-900">Masukkan kode 6 digit dari aplikasi</p>
-                                <form method="POST" action="{{ route('two-factor.confirm') }}" class="mt-3">
+                                <p class="text-xs text-gray-500 mt-0.5">Buka aplikasi authenticator Anda lalu ketikkan 6 digit angka yang muncul:</p>
+                                <form id="confirm-2fa-form" method="POST" action="{{ route('two-factor.confirm') }}" class="mt-2.5 max-w-xs">
                                     @csrf
-                                    <div class="flex flex-col sm:flex-row gap-2.5">
-                                        <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required autofocus
-                                            placeholder="000000"
-                                            class="w-full sm:w-44 text-center tracking-[0.35em] font-mono font-bold text-xl border-gray-300 rounded-xl shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5">
-                                        <button type="submit"
-                                            class="inline-flex items-center justify-center px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg transition-all">
-                                            Konfirmasi & Aktifkan
-                                        </button>
-                                    </div>
+                                    <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required autofocus
+                                        placeholder="000000"
+                                        class="w-full text-center tracking-[0.35em] font-mono font-bold text-2xl border-gray-300 rounded-xl shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5">
+                                    <x-input-error :messages="$errors->get('code')" class="mt-2" />
                                 </form>
-                                <x-input-error :messages="$errors->get('code')" class="mt-2" />
                             </div>
                         </li>
                     </ol>
                 </div>
 
                 {{-- Modal Footer --}}
-                <div class="bg-gray-50 px-6 py-3.5 border-t border-gray-200 flex justify-end gap-2">
-                    <form id="cancel-setup-form" method="POST" action="{{ route('two-factor.cancel') }}">
+                <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3">
+                    <form id="cancel-setup-form" method="POST" action="{{ route('two-factor.cancel') }}" class="inline">
                         @csrf
-                        <button type="submit" class="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors">
-                            Batalkan Penyiapan
+                        <button type="submit"
+                            class="w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl shadow-sm transition-colors">
+                            <svg class="w-4 h-4 mr-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                            Batalkan
                         </button>
                     </form>
+                    <button type="submit" form="confirm-2fa-form"
+                        class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg transition-all">
+                        <svg class="w-4 h-4 mr-1.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        Konfirmasi & Aktifkan
+                    </button>
                 </div>
             </div>
         </div>

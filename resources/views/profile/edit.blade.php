@@ -30,13 +30,15 @@
 
     <div class="py-8" x-data="{ 
             showSuccessModal: {{ (session('success') || session('status') === 'password-updated') ? 'true' : 'false' }}, 
-            showErrorModal: {{ (session('error') || $errors->any() || (isset($errors->updatePassword) && $errors->updatePassword->any())) ? 'true' : 'false' }}
+            showErrorModal: {{ (session('error') || $errors->any() || (isset($errors->updatePassword) && $errors->updatePassword->any())) ? 'true' : 'false' }},
+            showCancelModal: {{ (session('cancelled') || session('cancel')) ? 'true' : 'false' }}
          }" 
          x-init="
-            if (showSuccessModal || showErrorModal) {
+            if (showSuccessModal || showErrorModal || showCancelModal) {
                 setTimeout(() => {
                     if (showSuccessModal) showSuccessModal = false;
                     if (showErrorModal) showErrorModal = false;
+                    if (showCancelModal) showCancelModal = false;
                 }, 3000);
             }
          ">
@@ -162,6 +164,40 @@
                         @endif
                     </p>
                     <button @click="showErrorModal = false" 
+                            class="w-full bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cancel Modal -->
+        <div x-show="showCancelModal" 
+             x-cloak
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4"
+             @click.away="showCancelModal = false">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full transform transition-all"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+                <div class="p-6">
+                    <div class="flex items-center justify-center w-16 h-16 mx-auto bg-red-100 rounded-full mb-4">
+                        <svg class="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900 text-center mb-2">Dibatalkan</h3>
+                    <p class="text-gray-600 text-center mb-6">{{ session('cancelled') ?? session('cancel') ?? 'Pendaftaran dibatalkan.' }}</p>
+                    <button @click="showCancelModal = false" 
                             class="w-full bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl">
                         Tutup
                     </button>

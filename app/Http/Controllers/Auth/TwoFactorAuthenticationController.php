@@ -68,7 +68,7 @@ class TwoFactorAuthenticationController extends Controller
         $request->session()->forget(self::PENDING_SECRET);
 
         return redirect()->route('profile.edit')
-            ->with('success', 'Pendaftaran autentikasi dua faktor dibatalkan.');
+            ->with('cancelled', 'Pendaftaran autentikasi dua faktor dibatalkan.');
     }
 
     /**
